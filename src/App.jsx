@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  LayoutDashboard, 
-  ShoppingBag, 
-  Package, 
-  History, 
-  Plus, 
-  Search, 
-  Trash2, 
-  Edit3, 
-  PlusCircle, 
-  MinusCircle, 
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Package,
+  History,
+  Plus,
+  Search,
+  Trash2,
+  Edit3,
+  PlusCircle,
+  MinusCircle,
   CheckCircle2,
   TrendingUp,
   AlertTriangle,
@@ -22,14 +22,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from './firebase';
-import { 
-  collection, 
-  onSnapshot, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
+import {
+  collection,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
   orderBy,
   serverTimestamp,
   setDoc,
@@ -62,7 +62,7 @@ export default function App() {
   const [pinInput, setPinInput] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' or 'qr'
-  
+
   // Try-on State
   const [tryOnImage, setTryOnImage] = useState(null);
   const [selectedTryOnProduct, setSelectedTryOnProduct] = useState(null);
@@ -102,7 +102,7 @@ export default function App() {
     const unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
       const prods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setProducts(prods);
-      
+
       // Khởi tạo dữ liệu mẫu nếu DB trống
       if (snapshot.empty) {
         DEFAULT_PRODUCTS.forEach(p => addDoc(collection(db, "products"), p));
@@ -120,7 +120,7 @@ export default function App() {
       unsubOrders();
     };
   }, []);
-  
+
   // New Product Form State
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -179,7 +179,7 @@ export default function App() {
   };
 
   const handleVerifyPin = () => {
-    if (pinInput === '1234') { // Simple PIN for demo
+    if (pinInput === '14041952') { // Simple PIN for demo
       setUserRole('manager');
       setActiveTab('dashboard');
       setShowPinModal(false);
@@ -204,7 +204,7 @@ export default function App() {
       reader.onloadend = async () => {
         const dataUrl = reader.result;
         setTryOnImage(dataUrl);
-        
+
         // Detect Face with MediaPipe or fallback
         const img = new Image();
         img.src = dataUrl;
@@ -253,27 +253,27 @@ export default function App() {
       canvas.width = imgElement.width;
       canvas.height = imgElement.height;
       ctx.drawImage(imgElement, 0, 0);
-      
+
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       // Remove white/light background
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i+1], b = data[i+2];
+        const r = data[i], g = data[i + 1], b = data[i + 2];
         if (r > 220 && g > 220 && b > 220) {
-          data[i+3] = 0;
+          data[i + 3] = 0;
         } else if (r > 200 && g > 200 && b > 200) {
-          data[i+3] = Math.round(data[i+3] * 0.3); // Semi-transparent for edges
+          data[i + 3] = Math.round(data[i + 3] * 0.3); // Semi-transparent for edges
         }
       }
       ctx.putImageData(imageData, 0, 0);
-      
+
       // Feathering for smooth edges
       ctx.globalCompositeOperation = 'destination-in';
       ctx.filter = 'blur(0.5px)';
       ctx.drawImage(canvas, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
       ctx.filter = 'none';
-      
+
       resolve(canvas.toDataURL());
     });
   };
@@ -328,11 +328,11 @@ export default function App() {
       const pos = getSmartPosition(product);
       setTryOnPos(pos);
       setTryOnScale(1);
-      
+
       setSelectedTryOnProduct({ ...product, processedImage });
       setAutoAligned(false);
       setIsScanning(false);
-      
+
       setTimeout(() => setAutoAligned(true), 400);
     };
   };
@@ -340,7 +340,7 @@ export default function App() {
   // Export Final Image (like CapCut)
   const exportTryOnImage = () => {
     if (!tryOnImage || !selectedTryOnProduct) return;
-    
+
     const canvasEl = document.createElement('canvas');
     const ctx = canvasEl.getContext('2d');
     canvasEl.width = 1080;
@@ -364,14 +364,14 @@ export default function App() {
         const pLeft = parseFloat(tryOnPos.left) / 100 * canvasEl.width;
         const pWidth = (parseFloat(tryOnPos.width) / 100 * canvasEl.width) * tryOnScale;
         const pHeight = pWidth * (prodImg.height / prodImg.width);
-        
+
         if (isFlipped) {
           ctx.save();
           ctx.translate(pLeft + pWidth / 2, pTop + pHeight / 2);
           ctx.scale(-1, 1);
           ctx.translate(-(pLeft + pWidth / 2), -(pTop + pHeight / 2));
         }
-        
+
         // Apply shadow
         ctx.shadowColor = 'rgba(0,0,0,0.4)';
         ctx.shadowBlur = 20;
@@ -456,13 +456,13 @@ export default function App() {
       setCart([]);
       setShowPaymentModal(false);
       setShowCart(false);
-      
+
       if (userRole === 'manager') {
         setActiveTab('orders');
       }
-      
-      alert(userRole === 'manager' 
-        ? `Thanh toán ${paymentMethod === 'cash' ? 'tiền mặt' : 'chuyển khoản'} thành công!` 
+
+      alert(userRole === 'manager'
+        ? `Thanh toán ${paymentMethod === 'cash' ? 'tiền mặt' : 'chuyển khoản'} thành công!`
         : 'Đã xác nhận đơn hàng thành công! Vui lòng cho chủ shop xem màn hình này.'
       );
     } catch (err) {
@@ -488,7 +488,7 @@ export default function App() {
 
   const aiInsights = useMemo(() => {
     const recommendations = [];
-    
+
     // 1. Phân tích hàng bán chạy
     const salesCount = {};
     orders.forEach(o => {
@@ -499,7 +499,7 @@ export default function App() {
 
     const topSellingId = Object.entries(salesCount).sort((a, b) => b[1] - a[1])[0]?.[0];
     const topProduct = products.find(p => p.id == topSellingId);
-    
+
     if (topProduct && topProduct.stock < 10) {
       recommendations.push({
         type: 'trend',
@@ -568,16 +568,16 @@ export default function App() {
       <AnimatePresence>
         {showPinModal && (
           <div className="modal-overlay" style={{ zIndex: 1000 }}>
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               className="pin-modal glass-effect"
             >
               <h3>Xác thực Quản lý</h3>
               <p>Vui lòng nhập mã PIN để tiếp tục</p>
-              <input 
-                type="password" 
-                placeholder="****" 
+              <input
+                type="password"
+                placeholder="****"
                 className="pin-input"
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
@@ -597,23 +597,23 @@ export default function App() {
       <AnimatePresence>
         {showPaymentModal && (
           <div className="modal-overlay" style={{ zIndex: 1100 }}>
-            <motion.div 
+            <motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               className="payment-modal glass-effect"
             >
               <h3>Phương thức thanh toán</h3>
               <p className="total-label">Tổng cộng: {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}đ</p>
-              
+
               <div className="payment-options">
-                <div 
+                <div
                   className={`pay-opt ${paymentMethod === 'cash' ? 'active' : ''}`}
                   onClick={() => setPaymentMethod('cash')}
                 >
                   <ShoppingBag size={24} />
                   <span>Tiền mặt</span>
                 </div>
-                <div 
+                <div
                   className={`pay-opt ${paymentMethod === 'qr' ? 'active' : ''}`}
                   onClick={() => setPaymentMethod('qr')}
                 >
@@ -624,9 +624,9 @@ export default function App() {
 
               {paymentMethod === 'qr' && (
                 <div className="qr-container fade-in">
-                  <img 
-                    src={`https://img.vietqr.io/image/970416-0123456789-compact.png?amount=${cart.reduce((s, i) => s + (i.price * i.quantity), 0)}&addInfo=Thanh+toan+Co+Hue+Shop`} 
-                    alt="VietQR" 
+                  <img
+                    src={`https://img.vietqr.io/image/970416-0123456789-compact.png?amount=${cart.reduce((s, i) => s + (i.price * i.quantity), 0)}&addInfo=Thanh+toan+Co+Hue+Shop`}
+                    alt="VietQR"
                     className="qr-img"
                   />
                   <p className="qr-hint">Mã QR tự động tạo theo số tiền đơn hàng</p>
@@ -646,7 +646,7 @@ export default function App() {
       <main className="main-content">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
-            <motion.div 
+            <motion.div
               key="dashboard"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -678,7 +678,7 @@ export default function App() {
               </section>
 
               {expandedStat && (
-                <motion.section 
+                <motion.section
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   className="stat-detail-list glass-effect"
@@ -726,8 +726,8 @@ export default function App() {
                 </div>
                 <div className="ai-cards">
                   {aiInsights.map((insight, idx) => (
-                    <div 
-                      key={idx} 
+                    <div
+                      key={idx}
                       className={`ai-card glass-effect border-${insight.priority} ${expandedInsight === idx ? 'expanded' : ''}`}
                       onClick={() => setExpandedInsight(expandedInsight === idx ? null : idx)}
                     >
@@ -739,7 +739,7 @@ export default function App() {
                         <ChevronRight size={16} className={`ai-chevron ${expandedInsight === idx ? 'rotated' : ''}`} />
                       </div>
                       {expandedInsight === idx && (
-                        <motion.div 
+                        <motion.div
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           className="ai-reason"
@@ -774,7 +774,7 @@ export default function App() {
           )}
 
           {activeTab === 'pos' && (
-            <motion.div 
+            <motion.div
               key="pos"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -784,8 +784,8 @@ export default function App() {
               <div className="pos-search">
                 <div className="search-bar glass-effect">
                   <Search size={20} className="text-muted" />
-                  <input 
-                    placeholder="Tìm sản phẩm..." 
+                  <input
+                    placeholder="Tìm sản phẩm..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -794,8 +794,8 @@ export default function App() {
 
               <div className="category-scroll">
                 {CATEGORIES.map(cat => (
-                  <button 
-                    key={cat} 
+                  <button
+                    key={cat}
                     className={`cat-pill ${selectedCategory === cat ? 'active' : ''}`}
                     onClick={() => setSelectedCategory(cat)}
                   >
@@ -840,7 +840,7 @@ export default function App() {
 
               {/* Cart Drawer Toggle */}
               {cart.length > 0 && (
-                <motion.div 
+                <motion.div
                   initial={{ y: 100 }}
                   animate={{ y: 0 }}
                   className="cart-summary-bar glass-effect"
@@ -858,7 +858,7 @@ export default function App() {
               <AnimatePresence>
                 {showCart && (
                   <>
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -866,7 +866,7 @@ export default function App() {
                       style={{ zIndex: 1050 }}
                       onClick={() => setShowCart(false)}
                     />
-                    <motion.div 
+                    <motion.div
                       initial={{ y: '100%' }}
                       animate={{ y: 0 }}
                       exit={{ y: '100%' }}
@@ -911,7 +911,7 @@ export default function App() {
           )}
 
           {activeTab === 'products' && userRole === 'manager' && (
-            <motion.div 
+            <motion.div
               key="products"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -927,7 +927,7 @@ export default function App() {
               <AnimatePresence>
                 {isAddingProduct && (
                   <div className="modal-overlay" style={{ zIndex: 200 }}>
-                    <motion.div 
+                    <motion.div
                       initial={{ scale: 0.9, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       className="add-product-form glass-effect"
@@ -944,21 +944,21 @@ export default function App() {
                               <span>Chụp ảnh mẫu mới</span>
                             </div>
                           )}
-                          <input 
+                          <input
                             id="camera-input"
-                            type="file" 
-                            accept="image/*" 
-                            capture="environment" 
-                            hidden 
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            hidden
                             onChange={handleImageCapture}
                           />
                         </div>
                       </div>
                       <div className="form-group">
                         <label>Tên sản phẩm</label>
-                        <input 
-                          type="text" 
-                          placeholder="VD: Nón Snapback..." 
+                        <input
+                          type="text"
+                          placeholder="VD: Nón Snapback..."
                           value={newProduct.name}
                           onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
                         />
@@ -966,16 +966,16 @@ export default function App() {
                       <div className="form-row">
                         <div className="form-group">
                           <label>Giá bán (đ)</label>
-                          <input 
-                            type="number" 
+                          <input
+                            type="number"
                             value={newProduct.price}
                             onChange={(e) => setNewProduct(prev => ({ ...prev, price: e.target.value }))}
                           />
                         </div>
                         <div className="form-group">
                           <label>Tồn kho</label>
-                          <input 
-                            type="number" 
+                          <input
+                            type="number"
                             value={newProduct.stock}
                             onChange={(e) => setNewProduct(prev => ({ ...prev, stock: e.target.value }))}
                           />
@@ -983,7 +983,7 @@ export default function App() {
                       </div>
                       <div className="form-group">
                         <label>Danh mục</label>
-                        <select 
+                        <select
                           value={newProduct.category}
                           onChange={(e) => setNewProduct(prev => ({ ...prev, category: e.target.value }))}
                         >
@@ -1021,7 +1021,7 @@ export default function App() {
           )}
 
           {activeTab === 'orders' && userRole === 'manager' && (
-            <motion.div 
+            <motion.div
               key="orders"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1060,7 +1060,7 @@ export default function App() {
           )}
 
           {activeTab === 'tryon' && (
-            <motion.div 
+            <motion.div
               key="tryon"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1081,9 +1081,9 @@ export default function App() {
                 <div className="tryon-preview-container">
                   <div className="tryon-canvas glass-effect">
                     <img src={tryOnImage} alt="Customer" className="customer-photo" />
-                    
+
                     {isScanning && (
-                      <motion.div 
+                      <motion.div
                         initial={{ top: 0 }}
                         animate={{ top: '100%' }}
                         transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
@@ -1092,13 +1092,13 @@ export default function App() {
                     )}
 
                     {selectedTryOnProduct && (
-                      <motion.img 
+                      <motion.img
                         drag
                         dragMomentum={false}
-                        src={selectedTryOnProduct.processedImage || selectedTryOnProduct.image} 
+                        src={selectedTryOnProduct.processedImage || selectedTryOnProduct.image}
                         className={`tryon-product-overlay ${autoAligned ? 'aligned' : ''}`}
                         initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ 
+                        animate={{
                           scale: tryOnScale,
                           top: autoAligned ? tryOnPos.top : '10%',
                           left: autoAligned ? tryOnPos.left : '25%',
@@ -1110,7 +1110,7 @@ export default function App() {
                       />
                     )}
                   </div>
-                  
+
                   <div className="tryon-ai-status">
                     {isScanning ? (
                       <span className="text-primary pulse">AI đang phân tích và ghép ảnh...</span>
@@ -1147,8 +1147,8 @@ export default function App() {
                   </div>
                   <div className="tryon-product-list">
                     {products.map(p => (
-                      <div 
-                        key={p.id} 
+                      <div
+                        key={p.id}
                         className={`tryon-p-card ${selectedTryOnProduct?.id === p.id ? 'active' : ''}`}
                         onClick={() => handleAutoAlign(p)}
                       >
@@ -1166,7 +1166,7 @@ export default function App() {
       {/* Bottom Navigation */}
       <nav className="bottom-nav glass-effect">
         {userRole === 'manager' && (
-          <button 
+          <button
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
@@ -1174,14 +1174,14 @@ export default function App() {
             <span>Tổng quan</span>
           </button>
         )}
-        <button 
+        <button
           className={`nav-item ${activeTab === 'pos' ? 'active' : ''}`}
           onClick={() => setActiveTab('pos')}
         >
           <ShoppingBag size={24} />
           <span>{userRole === 'manager' ? 'Bán hàng' : 'Sản phẩm'}</span>
         </button>
-        <button 
+        <button
           className={`nav-item ${activeTab === 'tryon' ? 'active' : ''}`}
           onClick={() => setActiveTab('tryon')}
         >
@@ -1190,14 +1190,14 @@ export default function App() {
         </button>
         {userRole === 'manager' && (
           <>
-            <button 
+            <button
               className={`nav-item ${activeTab === 'products' ? 'active' : ''}`}
               onClick={() => setActiveTab('products')}
             >
               <Package size={24} />
               <span>Kho hàng</span>
             </button>
-            <button 
+            <button
               className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}
               onClick={() => setActiveTab('orders')}
             >
