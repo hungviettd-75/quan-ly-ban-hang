@@ -179,7 +179,7 @@ export default function App() {
   };
 
   const handleVerifyPin = () => {
-    if (pinInput === '14041952') { // Simple PIN for demo
+    if (pinInput === '0452') { // Simple PIN for demo
       setUserRole('manager');
       setActiveTab('dashboard');
       setShowPinModal(false);
