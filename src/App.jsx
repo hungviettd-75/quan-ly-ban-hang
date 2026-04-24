@@ -357,13 +357,20 @@ export default function App() {
 
       // Draw product on top
       const prodImg = new Image();
+      prodImg.crossOrigin = "anonymous";
       prodImg.src = selectedTryOnProduct.processedImage || selectedTryOnProduct.image;
       prodImg.onload = () => {
-        const pos = getSmartPosition(selectedTryOnProduct);
-        const pTop = parseFloat(pos.top) / 100 * canvasEl.height;
-        const pLeft = parseFloat(pos.left) / 100 * canvasEl.width;
-        const pWidth = parseFloat(pos.width) / 100 * canvasEl.width;
+        const pTop = parseFloat(tryOnPos.top) / 100 * canvasEl.height;
+        const pLeft = parseFloat(tryOnPos.left) / 100 * canvasEl.width;
+        const pWidth = (parseFloat(tryOnPos.width) / 100 * canvasEl.width) * tryOnScale;
         const pHeight = pWidth * (prodImg.height / prodImg.width);
+        
+        if (isFlipped) {
+          ctx.save();
+          ctx.translate(pLeft + pWidth / 2, pTop + pHeight / 2);
+          ctx.scale(-1, 1);
+          ctx.translate(-(pLeft + pWidth / 2), -(pTop + pHeight / 2));
+        }
         
         // Apply shadow
         ctx.shadowColor = 'rgba(0,0,0,0.4)';
@@ -371,6 +378,7 @@ export default function App() {
         ctx.shadowOffsetY = 10;
         ctx.drawImage(prodImg, pLeft, pTop, pWidth, pHeight);
         ctx.shadowColor = 'transparent';
+        if (isFlipped) ctx.restore();
 
         // Watermark / Branding
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
