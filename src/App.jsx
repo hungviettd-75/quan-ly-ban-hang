@@ -18,9 +18,14 @@ import {
   LogOut,
   Phone,
   MapPin,
-  MessageCircle
+  MessageCircle,
+  Layers,
+  Heart,
+  Wind,
+  Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import logo from './assets/logo.png';
 import { db } from './firebase';
 import {
   collection,
@@ -58,6 +63,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const [showCart, setShowCart] = useState(false);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -159,13 +165,31 @@ export default function App() {
     };
 
     try {
-      await addDoc(collection(db, "products"), productData);
+      if (editingProduct) {
+        await updateDoc(doc(db, "products", editingProduct.id), productData);
+        alert('Đã cập nhật sản phẩm thành công!');
+      } else {
+        await addDoc(collection(db, "products"), productData);
+        alert('Đã lưu sản phẩm vào hệ thống đám mây!');
+      }
       setIsAddingProduct(false);
+      setEditingProduct(null);
       setNewProduct({ name: '', price: '', stock: '', category: 'Nón Nam', image: null });
-      alert('Đã lưu sản phẩm vào hệ thống đám mây!');
     } catch (err) {
       alert('Lỗi khi lưu sản phẩm: ' + err.message);
     }
+  };
+
+  const startEditProduct = (product) => {
+    setEditingProduct(product);
+    setNewProduct({
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      category: product.category,
+      image: product.image
+    });
+    setIsAddingProduct(true);
   };
 
   const deleteProduct = async (id) => {
@@ -544,9 +568,14 @@ export default function App() {
       {/* Header */}
       <header className="main-header glass-effect">
         <div className="header-content">
-          <div className="logo">
-            <ShoppingBag className="text-primary" />
-            <span>Cô Huệ Shop</span>
+          <div className="logo" onClick={() => setActiveTab('pos')}>
+            <div className="logo-icon-wrapper">
+              <img src={logo} alt="Logo" className="logo-img" />
+            </div>
+            <div className="logo-text">
+              <h1 className="logo-name">Cô Huệ Shop</h1>
+              <span className="logo-tagline">Thời trang cao cấp</span>
+            </div>
           </div>
           <div className="header-actions">
             {userRole === 'customer' ? (
@@ -761,7 +790,7 @@ export default function App() {
                   {orders.slice(0, 3).map(order => (
                     <div key={order.id} className="order-item glass-effect">
                       <div className="order-main">
-                        <span className="order-id">{order.id}</span>
+                        <span className="order-id">HD-{order.id.slice(-6).toUpperCase()}</span>
                         <span className="order-date">{order.date}</span>
                       </div>
                       <span className="order-total">{order.total.toLocaleString()}đ</span>
@@ -793,15 +822,25 @@ export default function App() {
               </div>
 
               <div className="category-scroll">
-                {CATEGORIES.map(cat => (
-                  <button
-                    key={cat}
-                    className={`cat-pill ${selectedCategory === cat ? 'active' : ''}`}
-                    onClick={() => setSelectedCategory(cat)}
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {CATEGORIES.map(cat => {
+                  const Icon = cat === 'Tất cả' ? Filter : 
+                               cat === 'Nón Nam' ? User : 
+                               cat === 'Nón Nữ' ? Heart : 
+                               cat === 'Túi xách' ? ShoppingBag : 
+                               cat === 'Khăn quàng' ? Wind : 
+                               cat === 'Phụ kiện' ? Layers : Package;
+                  return (
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      key={cat}
+                      className={`cat-pill ${selectedCategory === cat ? 'active' : ''}`}
+                      onClick={() => setSelectedCategory(cat)}
+                    >
+                      <Icon size={16} />
+                      {cat}
+                    </motion.button>
+                  );
+                })}
               </div>
 
               <div className="product-grid">
@@ -812,11 +851,20 @@ export default function App() {
                       {product.stock <= 0 && <div className="out-of-stock">Hết hàng</div>}
                     </div>
                     <div className="product-details">
-                      <span className="p-cat">{product.category}</span>
+                      <div className="p-header">
+                        <span className="p-cat">{product.category}</span>
+                        {userRole === 'manager' && (
+                          <span className={`p-stock ${product.stock < 5 ? 'low' : ''}`}>
+                            <Package size={12} /> {product.stock}
+                          </span>
+                        )}
+                      </div>
                       <h4 className="p-name">{product.name}</h4>
                       <div className="p-footer">
                         <span className="p-price">{product.price.toLocaleString()}đ</span>
-                        <span className={`p-stock ${product.stock < 5 ? 'low' : ''}`}>Kho: {product.stock}</span>
+                        <div className="p-add-icon">
+                          <Plus size={16} />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -926,13 +974,15 @@ export default function App() {
               {/* Add Product Form Overlay */}
               <AnimatePresence>
                 {isAddingProduct && (
-                  <div className="modal-overlay" style={{ zIndex: 200 }}>
+                  <div className="modal-overlay" style={{ zIndex: 1100 }}>
                     <motion.div
                       initial={{ scale: 0.9, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       className="add-product-form glass-effect"
                     >
-                      <h3>Thêm sản phẩm mới</h3>
+                      <div className="page-header">
+                        <h3>{editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}</h3>
+                      </div>
                       <div className="form-group">
                         <label>Hình ảnh sản phẩm</label>
                         <div className="camera-upload-zone" onClick={() => document.getElementById('camera-input').click()}>
@@ -991,8 +1041,12 @@ export default function App() {
                         </select>
                       </div>
                       <div className="form-actions">
-                        <button className="btn-cancel" onClick={() => setIsAddingProduct(false)}>Hủy</button>
-                        <button className="btn-submit" onClick={handleSaveProduct}>Lưu hệ thống</button>
+                        <button className="btn-cancel" onClick={() => {
+                          setIsAddingProduct(false);
+                          setEditingProduct(null);
+                          setNewProduct({ name: '', price: '', stock: '', category: 'Nón Nam', image: null });
+                        }}>Hủy</button>
+                        <button className="btn-submit" onClick={handleSaveProduct}>{editingProduct ? 'Cập nhật' : 'Lưu hệ thống'}</button>
                       </div>
                     </motion.div>
                   </div>
@@ -1011,7 +1065,7 @@ export default function App() {
                       </div>
                     </div>
                     <div className="inv-actions">
-                      <button className="btn-icon text-secondary" onClick={() => alert('Tính năng chỉnh sửa đang phát triển')}><Edit3 size={18} /></button>
+                      <button className="btn-icon text-secondary" onClick={() => startEditProduct(p)}><Edit3 size={18} /></button>
                       <button className="btn-icon text-accent" onClick={() => deleteProduct(p.id)}><Trash2 size={18} /></button>
                     </div>
                   </div>
@@ -1035,7 +1089,7 @@ export default function App() {
                 {orders.map(order => (
                   <div key={order.id} className="order-detailed-card glass-effect">
                     <div className="od-header">
-                      <span className="od-id">{order.id}</span>
+                      <span className="od-id">HD-{order.id.slice(-6).toUpperCase()}</span>
                       <span className="od-date">{order.date}</span>
                     </div>
                     <div className="od-items">
@@ -1537,10 +1591,63 @@ export default function App() {
         .logo {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          font-weight: 800;
-          font-size: 1.25rem;
-          color: var(--primary);
+          gap: 1rem;
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        }
+        .logo:hover {
+          transform: scale(1.02);
+        }
+        .logo-icon-wrapper {
+          width: 44px;
+          height: 44px;
+          background: white;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+          position: relative;
+          overflow: hidden;
+          padding: 2px;
+        }
+        .logo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+        .logo-icon-wrapper::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
+          transform: translateX(-100%);
+          transition: transform 0.5s ease;
+        }
+        .logo:hover .logo-icon-wrapper::after {
+          transform: translateX(100%);
+        }
+        .logo-text {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .logo-name {
+          font-size: 1.5rem;
+          font-weight: 900;
+          line-height: 1;
+          background: linear-gradient(to right, #fff, var(--primary));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          letter-spacing: -0.03em;
+          text-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .logo-tagline {
+          font-size: 0.6rem;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.25em;
+          font-weight: 700;
         }
 
         .main-content {
@@ -1640,30 +1747,76 @@ export default function App() {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0 1rem;
+          padding: 0.2rem 1.25rem;
           border-radius: var(--radius-full);
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--border);
+          transition: all 0.3s ease;
+        }
+        .pos-search .search-bar:focus-within {
+          border-color: var(--primary);
+          background: rgba(255, 255, 255, 0.08);
+          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+        }
+        .pos-search input {
+          background: none;
+          border: none;
+          padding: 0.75rem 0;
+          box-shadow: none;
         }
 
         .category-scroll {
           display: flex;
-          gap: 0.5rem;
+          gap: 0.75rem;
           overflow-x: auto;
-          padding-bottom: 0.5rem;
+          padding: 0.5rem 0.25rem 1.25rem 0.25rem;
           scrollbar-width: none;
+          -ms-overflow-style: none;
         }
         .category-scroll::-webkit-scrollbar { display: none; }
 
         .cat-pill {
+          position: relative;
           white-space: nowrap;
-          padding: 0.5rem 1.25rem;
+          padding: 0.6rem 1.5rem;
           border-radius: var(--radius-full);
-          background: var(--bg-card);
+          background: rgba(255, 255, 255, 0.03);
           color: var(--text-muted);
-          font-weight: 500;
+          font-weight: 600;
+          font-size: 0.875rem;
+          border: 1px solid var(--border);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
+
+        .cat-pill:hover {
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--text-main);
+          border-color: rgba(255, 255, 255, 0.2);
+          transform: translateY(-2px);
+        }
+
         .cat-pill.active {
-          background: var(--primary);
+          background: linear-gradient(135deg, var(--primary), var(--primary-dark));
           color: white;
+          border-color: transparent;
+          box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+          transform: translateY(-2px);
+        }
+
+        .cat-pill.active::after {
+          content: "";
+          position: absolute;
+          bottom: -8px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 4px;
+          height: 4px;
+          background: var(--primary);
+          border-radius: 50%;
+          box-shadow: 0 0 10px var(--primary);
         }
 
         .product-grid {
@@ -1678,36 +1831,130 @@ export default function App() {
           border-radius: var(--radius-lg);
           overflow: hidden;
           position: relative;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          border: 1px solid var(--border);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .product-card:hover {
+          transform: translateY(-5px);
+          border-color: rgba(245, 158, 11, 0.4);
+          box-shadow: 0 12px 24px rgba(0,0,0,0.4);
         }
 
         .product-image {
           height: 140px;
           position: relative;
+          overflow: hidden;
         }
         .product-image img {
           width: 100%;
           height: 100%;
           object-fit: cover;
+          transition: transform 0.5s ease;
         }
+        .product-card:hover .product-image img {
+          transform: scale(1.1);
+        }
+
         .out-of-stock {
           position: absolute;
           inset: 0;
-          background: rgba(0,0,0,0.6);
+          background: rgba(15, 23, 42, 0.8);
+          backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-weight: 700;
+          font-weight: 800;
+          color: white;
+          z-index: 10;
+          font-size: 0.9rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
 
         .product-details {
-          padding: 0.75rem;
+          padding: 1rem;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
         }
-        .p-cat { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
-        .p-name { font-size: 0.95rem; margin: 0.25rem 0; height: 2.5rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-        .p-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }
-        .p-price { font-weight: 700; color: var(--primary); font-size: 1rem; }
-        .p-stock { font-size: 0.75rem; color: var(--text-muted); }
-        .p-stock.low { color: var(--accent); }
+
+        .p-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .p-cat { 
+          font-size: 0.65rem; 
+          color: var(--text-muted); 
+          text-transform: uppercase; 
+          font-weight: 700;
+          letter-spacing: 0.05em;
+        }
+
+        .p-name { 
+          font-size: 0.95rem; 
+          margin: 0; 
+          height: 2.6rem; 
+          overflow: hidden; 
+          display: -webkit-box; 
+          -webkit-line-clamp: 2; 
+          -webkit-box-orient: vertical; 
+          line-height: 1.3;
+          font-weight: 600;
+        }
+
+        .p-footer { 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          margin-top: auto;
+          padding-top: 0.5rem;
+        }
+
+        .p-price { 
+          font-weight: 800; 
+          color: var(--primary); 
+          font-size: 1.1rem; 
+          letter-spacing: -0.01em;
+        }
+
+        .p-stock { 
+          font-size: 0.7rem; 
+          color: var(--text-muted); 
+          background: rgba(255, 255, 255, 0.05);
+          padding: 0.25rem 0.5rem;
+          border-radius: var(--radius-sm);
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          font-weight: 600;
+        }
+        .p-stock.low { 
+          background: rgba(236, 72, 153, 0.1);
+          color: var(--accent); 
+        }
+
+        .p-add-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: rgba(245, 158, 11, 0.1);
+          color: var(--primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+        }
+        .product-card:hover .p-add-icon {
+          background: var(--primary);
+          color: white;
+          transform: rotate(90deg);
+        }
 
         .cart-summary-bar {
           position: fixed;
@@ -1721,6 +1968,29 @@ export default function App() {
           align-items: center;
           box-shadow: 0 8px 32px rgba(0,0,0,0.4);
           z-index: 50;
+          cursor: pointer;
+        }
+
+        .cart-info {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .cart-count {
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          background: rgba(255, 255, 255, 0.1);
+          padding: 0.2rem 0.6rem;
+          border-radius: var(--radius-full);
+          white-space: nowrap;
+        }
+
+        .cart-total {
+          font-weight: 700;
+          font-size: 1.1rem;
+          color: white;
+          white-space: nowrap;
         }
 
         .btn-checkout-small {
