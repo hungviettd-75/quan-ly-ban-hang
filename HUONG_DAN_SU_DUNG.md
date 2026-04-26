@@ -17,7 +17,7 @@ Chào mừng cô chú đến với phần mềm bán hàng hiện đại của *
 ---
 
 ## 📱 MẸO: Cách đưa biểu tượng App ra màn hình chính (Để mở nhanh như Zalo, Facebook)
-Cô chú nên làm bước này để mỗi lần dùng không cần nhập địa chỉ web nữa, chỉ cần nhấn vào hình biểu tượng trên màn hình điện thoại là xong:
+Cô chú nên làm bước này để mỗi lần dùng không cần nhập địa chỉ web nữa, chỉ cần nhấn vào hình biểu tượng (Logo của Shop) trên màn hình điện thoại là xong:
 
 ### **Dành cho điện thoại Android (Samsung, Oppo, Xiaomi...):**
 1. Mở trang web bằng trình duyệt **Chrome**.
