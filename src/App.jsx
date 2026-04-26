@@ -171,12 +171,16 @@ export default function App() {
   // === AI XỬ LÝ ẢNH SẢN PHẨM: Tách nền + Nền trắng + Cắt tỉa ===
   const processProductImage = async (base64Image) => {
     try {
-      // 1. Chuyển base64 thành Blob
-      const fetchRes = await fetch(base64Image);
-      const imageBlob = await fetchRes.blob();
+      // 1. Chuyển base64 thành thẻ Image thật (để thư viện AI không bị lỗi drawImage)
+      const imgElement = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Không tải được ảnh gốc'));
+        img.src = base64Image;
+      });
 
-      // 2. Gọi AI tách nền
-      const resultBlob = await removeBackground(imageBlob, {
+      // 2. Gọi AI tách nền - truyền thẳng thẻ Image vào
+      const resultBlob = await removeBackground(imgElement, {
         model: 'small',
         device: 'cpu',
         output: { format: 'image/png' }
