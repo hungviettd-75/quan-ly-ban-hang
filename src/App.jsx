@@ -720,7 +720,7 @@ export default function App() {
                 <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>Tổng Quan Quản Lý</h2>
                 <p style={{ color: '#f59e0b', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', marginTop: '6px' }}>Hệ Thống Phân Tích Kinh Doanh</p>
               </div>
-              
+
               <section className="stats-grid">
                 <div className="stat-card" onClick={() => setExpandedStat(expandedStat === 'revenue' ? null : 'revenue')}>
                   <div className="stat-icon revenue" style={{ background: 'rgba(251, 191, 36, 0.1)', color: 'var(--primary)' }}>
@@ -750,8 +750,8 @@ export default function App() {
                 >
                   <h4>{
                     expandedStat === 'revenue' ? 'Sản phẩm đã bán hôm nay' :
-                    expandedStat === 'stock' ? 'Tất cả sản phẩm tồn kho' : 
-                    'Sản phẩm sắp hết hàng'
+                      expandedStat === 'stock' ? 'Tất cả sản phẩm tồn kho' :
+                        'Sản phẩm sắp hết hàng'
                   }</h4>
                   <div className="stat-product-list">
                     {expandedStat === 'revenue' ? (
@@ -893,12 +893,12 @@ export default function App() {
 
               <div className="category-scroll">
                 {CATEGORIES.map(cat => {
-                  const Icon = cat === 'Tất cả' ? Filter : 
-                               cat === 'Nón Nam' ? User : 
-                               cat === 'Nón Nữ' ? Heart : 
-                               cat === 'Túi xách' ? ShoppingBag : 
-                               cat === 'Khăn quàng' ? Wind : 
-                               cat === 'Phụ kiện' ? Layers : Package;
+                  const Icon = cat === 'Tất cả' ? Filter :
+                    cat === 'Nón Nam' ? User :
+                      cat === 'Nón Nữ' ? Heart :
+                        cat === 'Túi xách' ? ShoppingBag :
+                          cat === 'Khăn quàng' ? Wind :
+                            cat === 'Phụ kiện' ? Layers : Package;
                   return (
                     <motion.button
                       whileTap={{ scale: 0.95 }}
@@ -947,7 +947,7 @@ export default function App() {
                 <div className="contact-details">
                   <div className="contact-item">
                     <MapPin size={18} className="text-primary" />
-                    <span>Ô 93 chợ Long Khánh</span>
+                    <span>Ô 93, chợ Long Khánh, Đồng Nai.</span>
                   </div>
                   <div className="contact-item">
                     <MessageCircle size={18} className="text-secondary" />
