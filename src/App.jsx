@@ -19,14 +19,10 @@ import {
   Phone,
   MapPin,
   MessageCircle,
-  Layers,
-  Heart,
-  Wind,
   Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from './assets/logo.png';
-import { removeBackground } from '@imgly/background-removal';
 import { db } from './firebase';
 import {
   collection,
@@ -168,77 +164,97 @@ export default function App() {
     });
   };
 
-  // === AI XỬ LÝ ẢNH SẢN PHẨM: Tách nền + Nền trắng + Cắt tỉa ===
-  const processProductImage = async (base64Image) => {
-    try {
-      // 1. Chuyển base64 thành thẻ Image thật (để thư viện AI không bị lỗi drawImage)
-      const imgElement = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Không tải được ảnh gốc'));
-        img.src = base64Image;
-      });
-
-      // 2. Gọi AI tách nền - truyền thẳng thẻ Image vào
-      const resultBlob = await removeBackground(imgElement, {
-        model: 'small',
-        device: 'cpu',
-        output: { format: 'image/png' }
-      });
-
-      // 3. Chuyển blob kết quả thành base64
-      const resultBase64 = await blobToBase64(resultBlob);
-
-      // 4. Đặt lên nền trắng (dùng cùng cách với compressImage)
-      const finalImage = await placeOnWhiteBackground(resultBase64);
-      return finalImage;
-    } catch (error) {
-      console.error('Chi tiết lỗi AI:', error);
-      alert('AI tách nền lỗi: ' + (error.message || error) + '. Sẽ dùng ảnh gốc.');
-      return base64Image;
-    }
-  };
-
-  // Chuyển Blob thành base64 data URL
-  const blobToBase64 = (blob) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error('Không đọc được ảnh'));
-      reader.readAsDataURL(blob);
-    });
-  };
-
-  // Đặt ảnh đã tách nền lên nền trắng vuông (cùng pattern với compressImage)
-  const placeOnWhiteBackground = (base64Src) => {
-    return new Promise((resolve, reject) => {
+  // === THUẬT TOÁN XÓA NỀN THÔNG MINH (Chạy mượt trên mọi điện thoại) ===
+  const processProductImage = (base64Image) => {
+    return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        // 1. Tạo canvas với kích thước vừa phải để xử lý nhanh
+        const MAX_SIZE = 800;
+        let w = img.width, h = img.height;
+        if (Math.max(w, h) > MAX_SIZE) {
+          const scale = MAX_SIZE / Math.max(w, h);
+          w = Math.floor(w * scale);
+          h = Math.floor(h * scale);
+        }
 
+        // Tạo khung vuông trắng bọc ngoài
         const padding = 40;
-        const size = Math.max(img.width, img.height) + padding * 2;
+        const size = Math.max(w, h) + padding * 2;
+        
+        const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
+        const ctx = canvas.getContext('2d');
 
-        // Tô nền trắng trước
+        // Tô trắng toàn bộ
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, size, size);
 
-        // Vẽ ảnh sản phẩm (đã tách nền) lên giữa
-        const x = (size - img.width) / 2;
-        const y = (size - img.height) / 2;
-        ctx.drawImage(img, x, y);
+        // Vẽ ảnh gốc vào giữa
+        const offsetX = Math.floor((size - w) / 2);
+        const offsetY = Math.floor((size - h) / 2);
+        ctx.drawImage(img, offsetX, offsetY, w, h);
 
+        // Lấy dữ liệu điểm ảnh
+        const imageData = ctx.getImageData(0, 0, size, size);
+        const data = imageData.data;
+
+        // 2. Thuật toán Flood Fill: Xóa nền lan từ 4 góc vào trong
+        const visited = new Uint8Array(size * size);
+        const stack = [0, size - 1, (size - 1) * size, (size * size) - 1]; // Bắt đầu từ 4 góc
+
+        // Lấy màu mẫu từ góc trên bên trái làm màu nền gốc (thường là mặt bàn)
+        const bgIdx = (offsetY * size + offsetX) * 4;
+        const bgR = data[bgIdx], bgG = data[bgIdx + 1], bgB = data[bgIdx + 2];
+
+        // Ngưỡng sai số màu sắc (cao hơn một chút để xóa sạch vân gỗ/bóng râm)
+        const threshold = 45; 
+
+        // Hàm kiểm tra màu có giống màu nền không
+        const isSimilarToBg = (r, g, b) => {
+          return Math.abs(r - bgR) < threshold && 
+                 Math.abs(g - bgG) < threshold && 
+                 Math.abs(b - bgB) < threshold;
+        };
+
+        // Bắt đầu lan tỏa (Flood Fill)
+        while (stack.length > 0) {
+          const p = stack.pop();
+          if (visited[p]) continue;
+          visited[p] = 1;
+
+          const px = p % size;
+          const py = Math.floor(p / size);
+          const i = p * 4;
+
+          // Nếu là vùng lề trắng thì cứ đi tiếp
+          const isPadding = px < offsetX || px >= offsetX + w || py < offsetY || py >= offsetY + h;
+          
+          if (isPadding || isSimilarToBg(data[i], data[i+1], data[i+2])) {
+            // Xóa thành màu trắng hoàn toàn
+            data[i] = 255; 
+            data[i+1] = 255; 
+            data[i+2] = 255;
+
+            // Lan sang 4 hướng xung quanh
+            if (px > 0 && !visited[p - 1]) stack.push(p - 1);
+            if (px < size - 1 && !visited[p + 1]) stack.push(p + 1);
+            if (py > 0 && !visited[p - size]) stack.push(p - size);
+            if (py < size - 1 && !visited[p + size]) stack.push(p + size);
+          }
+        }
+
+        // Ghi lại dữ liệu đã xóa nền
+        ctx.putImageData(imageData, 0, 0);
         resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
-      img.onerror = () => reject(new Error('Không tải được ảnh đã xử lý'));
-      img.src = base64Src;
+      img.onerror = () => resolve(base64Image); // Lỗi thì trả ảnh gốc
+      img.src = base64Image;
     });
   };
 
-  // Chụp ảnh sản phẩm: AI tự động xử lý nền
+  // Chụp ảnh sản phẩm: Tự động xử lý nền
   const handleImageCapture = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -252,7 +268,6 @@ export default function App() {
         setNewProduct(prev => ({ ...prev, image: processed }));
       } catch (err) {
         console.error('Lỗi xử lý ảnh:', err);
-        alert('Lỗi xử lý ảnh: ' + (err.message || err));
         const compressed = await compressImage(reader.result);
         setNewProduct(prev => ({ ...prev, image: compressed }));
       } finally {
