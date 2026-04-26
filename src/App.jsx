@@ -19,7 +19,10 @@ import {
   Phone,
   MapPin,
   MessageCircle,
-  Filter
+  Filter,
+  Heart,
+  Wind,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from './assets/logo.png';
