@@ -81,6 +81,7 @@ export default function App() {
   const [tryOnPos, setTryOnPos] = useState({ top: '15%', left: '25%', width: '50%' });
   const [expandedInsight, setExpandedInsight] = useState(null);
   const [expandedStat, setExpandedStat] = useState(null); // 'stock' | 'lowStock' | null
+  const [isProcessingImage, setIsProcessingImage] = useState(false); // AI đang xử lý ảnh sản phẩm
 
   // Initialize MediaPipe
   useEffect(() => {
@@ -170,53 +171,66 @@ export default function App() {
   // === AI XỬ LÝ ẢNH SẢN PHẨM: Tách nền + Nền trắng + Cắt tỉa ===
   const processProductImage = async (base64Image) => {
     try {
-      // Chuyển base64 thành blob để thư viện AI xử lý
-      const response = await fetch(base64Image);
-      const imageBlob = await response.blob();
+      // 1. Chuyển base64 thành Blob
+      const fetchRes = await fetch(base64Image);
+      const imageBlob = await fetchRes.blob();
 
-      // Gọi AI tách nền (chạy trực tiếp trên trình duyệt, không cần server)
+      // 2. Gọi AI tách nền
       const resultBlob = await removeBackground(imageBlob, {
-        model: 'medium'
+        model: 'small',
+        device: 'cpu',
+        output: { format: 'image/png' }
       });
 
-      // Chuyển kết quả thành ảnh để đưa vào khung trắng
-      const resultUrl = URL.createObjectURL(resultBlob);
-      const finalImage = await placeOnWhiteBackground(resultUrl);
-      URL.revokeObjectURL(resultUrl);
+      // 3. Chuyển blob kết quả thành base64
+      const resultBase64 = await blobToBase64(resultBlob);
+
+      // 4. Đặt lên nền trắng (dùng cùng cách với compressImage)
+      const finalImage = await placeOnWhiteBackground(resultBase64);
       return finalImage;
     } catch (error) {
-      console.warn('AI tách nền lỗi, giữ ảnh gốc:', error);
-      // Nếu AI lỗi, vẫn trả về ảnh gốc để cô chú không bị mất ảnh
+      console.error('Chi tiết lỗi AI:', error);
+      alert('AI tách nền lỗi: ' + (error.message || error) + '. Sẽ dùng ảnh gốc.');
       return base64Image;
     }
   };
 
-  // Đưa ảnh đã tách nền vào khung trắng vuông, căn giữa sản phẩm
-  const placeOnWhiteBackground = (src) => {
-    return new Promise((resolve) => {
+  // Chuyển Blob thành base64 data URL
+  const blobToBase64 = (blob) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Không đọc được ảnh'));
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  // Đặt ảnh đã tách nền lên nền trắng vuông (cùng pattern với compressImage)
+  const placeOnWhiteBackground = (base64Src) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        // Tạo khung vuông nền trắng, kích thước bằng cạnh lớn nhất + lề
         const padding = 40;
         const size = Math.max(img.width, img.height) + padding * 2;
         canvas.width = size;
         canvas.height = size;
 
-        // Tô nền trắng toàn bộ
+        // Tô nền trắng trước
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, size, size);
 
-        // Vẽ sản phẩm vào chính giữa
-        const offsetX = (size - img.width) / 2;
-        const offsetY = (size - img.height) / 2;
-        ctx.drawImage(img, offsetX, offsetY, img.width, img.height);
+        // Vẽ ảnh sản phẩm (đã tách nền) lên giữa
+        const x = (size - img.width) / 2;
+        const y = (size - img.height) / 2;
+        ctx.drawImage(img, x, y);
 
         resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
-      img.src = src;
+      img.onerror = () => reject(new Error('Không tải được ảnh đã xử lý'));
+      img.src = base64Src;
     });
   };
 
@@ -225,20 +239,20 @@ export default function App() {
     const file = e.target.files[0];
     if (!file) return;
 
-    setIsScanning(true);
+    setIsProcessingImage(true);
     const reader = new FileReader();
     reader.onloadend = async () => {
       try {
-        const processed = await processProductImage(reader.result);
-        const compressed = await compressImage(processed);
-        setNewProduct(prev => ({ ...prev, image: compressed }));
+        const compressed = await compressImage(reader.result);
+        const processed = await processProductImage(compressed);
+        setNewProduct(prev => ({ ...prev, image: processed }));
       } catch (err) {
         console.error('Lỗi xử lý ảnh:', err);
-        // Fallback: dùng ảnh gốc nén lại
+        alert('Lỗi xử lý ảnh: ' + (err.message || err));
         const compressed = await compressImage(reader.result);
         setNewProduct(prev => ({ ...prev, image: compressed }));
       } finally {
-        setIsScanning(false);
+        setIsProcessingImage(false);
       }
     };
     reader.readAsDataURL(file);
@@ -1126,8 +1140,18 @@ export default function App() {
                       </div>
                       <div className="form-group">
                         <label>Hình ảnh sản phẩm</label>
-                        <div className="camera-upload-zone" onClick={() => document.getElementById('camera-input').click()}>
-                          {newProduct.image ? (
+                        <div className="camera-upload-zone" onClick={() => !isProcessingImage && document.getElementById('camera-input').click()}>
+                          {isProcessingImage ? (
+                            <div className="upload-placeholder" style={{ flexDirection: 'column', gap: '12px' }}>
+                              <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                                style={{ width: 40, height: 40, border: '3px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }}
+                              />
+                              <span style={{ color: 'var(--primary)', fontWeight: 700 }}>AI đang xóa nền...</span>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Vui lòng đợi 10-20 giây</span>
+                            </div>
+                          ) : newProduct.image ? (
                             <img src={newProduct.image} alt="Preview" className="preview-img" />
                           ) : (
                             <div className="upload-placeholder">
