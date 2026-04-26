@@ -480,6 +480,7 @@ export default function App() {
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+    setShowCart(false);
     setShowPaymentModal(true);
   };
 
@@ -535,7 +536,9 @@ export default function App() {
   }, [products, searchQuery, selectedCategory]);
 
   const stats = useMemo(() => {
-    const revenue = orders.reduce((sum, o) => sum + o.total, 0);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayOrders = orders.filter(o => o.date === todayStr);
+    const revenue = todayOrders.reduce((sum, o) => sum + o.total, 0);
     const lowStock = products.filter(p => p.stock < 5).length;
     const totalItems = products.reduce((sum, p) => sum + p.stock, 0);
     return { revenue, lowStock, totalItems };
@@ -597,7 +600,7 @@ export default function App() {
   return (
     <div className="app-container">
       {/* Header */}
-      <header className="main-header glass-effect">
+      <header className="main-header">
         <div className="header-content">
           <div className="logo" onClick={() => setActiveTab('pos')}>
             <div className="logo-icon-wrapper">
@@ -610,7 +613,7 @@ export default function App() {
           </div>
           <div className="header-actions">
             {userRole === 'customer' ? (
-              <button className="btn-primary" onClick={() => setShowPinModal(true)}>
+              <button className="btn-login-manager" onClick={() => setShowPinModal(true)}>
                 <User size={18} />
                 <span>Quản lý</span>
               </button>
@@ -627,11 +630,11 @@ export default function App() {
       {/* PIN Verification Modal */}
       <AnimatePresence>
         {showPinModal && (
-          <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal-overlay" style={{ zIndex: 3000 }}>
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="pin-modal glass-effect"
+              className="pin-modal"
             >
               <h3>Xác thực Quản lý</h3>
               <p>Vui lòng nhập mã PIN để tiếp tục</p>
@@ -656,7 +659,7 @@ export default function App() {
       {/* Payment Modal */}
       <AnimatePresence>
         {showPaymentModal && (
-          <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="modal-overlay" style={{ zIndex: 3000 }}>
             <motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -708,31 +711,33 @@ export default function App() {
           {activeTab === 'dashboard' && (
             <motion.div
               key="dashboard"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="page"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="page dashboard-page"
             >
+              <div className="dashboard-header" style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>Tổng Quan Quản Lý</h2>
+                <p style={{ color: '#f59e0b', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', marginTop: '6px' }}>Hệ Thống Phân Tích Kinh Doanh</p>
+              </div>
+              
               <section className="stats-grid">
-                <div className="stat-card glass-effect">
-                  <div className="stat-icon revenue"><TrendingUp size={20} /></div>
+                <div className="stat-card" onClick={() => setExpandedStat(expandedStat === 'revenue' ? null : 'revenue')}>
+                  <div className="stat-icon revenue" style={{ background: 'rgba(251, 191, 36, 0.1)', color: 'var(--primary)' }}>
+                    <TrendingUp size={20} />
+                  </div>
                   <div className="stat-info">
                     <span className="label">Doanh thu</span>
                     <span className="value">{stats.revenue.toLocaleString()}đ</span>
                   </div>
                 </div>
-                <div className={`stat-card glass-effect ${expandedStat === 'stock' ? 'active' : ''}`} onClick={() => setExpandedStat(expandedStat === 'stock' ? null : 'stock')}>
-                  <div className="stat-icon stock"><Package size={20} /></div>
+                <div className="stat-card" onClick={() => setExpandedStat(expandedStat === 'stock' ? null : 'stock')}>
+                  <div className="stat-icon stock" style={{ background: 'rgba(52, 211, 153, 0.1)', color: 'var(--secondary)' }}>
+                    <Package size={20} />
+                  </div>
                   <div className="stat-info">
                     <span className="label">Tồn kho</span>
                     <span className="value">{stats.totalItems} sp</span>
-                  </div>
-                </div>
-                <div className={`stat-card glass-effect ${expandedStat === 'lowStock' ? 'active' : ''}`} onClick={() => setExpandedStat(expandedStat === 'lowStock' ? null : 'lowStock')}>
-                  <div className="stat-icon alert"><AlertTriangle size={20} /></div>
-                  <div className="stat-info">
-                    <span className="label">Sắp hết</span>
-                    <span className="value" style={{ color: 'var(--error)' }}>{stats.lowStock} sp</span>
                   </div>
                 </div>
               </section>
@@ -743,18 +748,52 @@ export default function App() {
                   animate={{ height: 'auto', opacity: 1 }}
                   className="stat-detail-list glass-effect"
                 >
-                  <h4>{expandedStat === 'stock' ? 'Tất cả sản phẩm tồn kho' : 'Sản phẩm sắp hết hàng'}</h4>
+                  <h4>{
+                    expandedStat === 'revenue' ? 'Sản phẩm đã bán hôm nay' :
+                    expandedStat === 'stock' ? 'Tất cả sản phẩm tồn kho' : 
+                    'Sản phẩm sắp hết hàng'
+                  }</h4>
                   <div className="stat-product-list">
-                    {(expandedStat === 'stock' ? products : products.filter(p => p.stock < 5)).map(p => (
-                      <div key={p.id} className="stat-product-item">
-                        <img src={p.image} alt="" />
-                        <div className="stat-p-info">
-                          <span className="stat-p-name">{p.name}</span>
-                          <span className="stat-p-cat">{p.category}</span>
+                    {expandedStat === 'revenue' ? (
+                      (() => {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const tOrders = orders.filter(o => o.date === todayStr);
+                        const sold = {};
+                        tOrders.forEach(o => o.items.forEach(i => {
+                          if (!sold[i.productId]) sold[i.productId] = { qty: 0, rev: 0 };
+                          sold[i.productId].qty += i.quantity;
+                          sold[i.productId].rev += i.price * i.quantity;
+                        }));
+                        const soldArray = Object.keys(sold).map(pid => {
+                          const p = products.find(prod => prod.id === pid);
+                          return p ? { ...p, qtySold: sold[pid].qty, rev: sold[pid].rev } : null;
+                        }).filter(Boolean);
+
+                        if (soldArray.length === 0) return <p className="text-muted" style={{ textAlign: 'center', padding: '1rem' }}>Chưa có sản phẩm nào bán ra hôm nay.</p>;
+
+                        return soldArray.map(p => (
+                          <div key={p.id} className="stat-product-item">
+                            <img src={p.image} alt="" />
+                            <div className="stat-p-info">
+                              <span className="stat-p-name">{p.name}</span>
+                              <span className="stat-p-cat">Đã bán: {p.qtySold} cái</span>
+                            </div>
+                            <span className="stat-p-qty" style={{ color: 'var(--primary)' }}>{p.rev.toLocaleString()}đ</span>
+                          </div>
+                        ));
+                      })()
+                    ) : (
+                      (expandedStat === 'stock' ? products : products.filter(p => p.stock < 5)).map(p => (
+                        <div key={p.id} className="stat-product-item">
+                          <img src={p.image} alt="" />
+                          <div className="stat-p-info">
+                            <span className="stat-p-name">{p.name}</span>
+                            <span className="stat-p-cat">{p.category}</span>
+                          </div>
+                          <span className={`stat-p-qty ${p.stock < 5 ? 'low' : ''}`}>{p.stock} sp</span>
                         </div>
-                        <span className={`stat-p-qty ${p.stock < 5 ? 'low' : ''}`}>{p.stock} sp</span>
-                      </div>
-                    ))}
+                      ))
+                    )}
                     {expandedStat === 'lowStock' && products.filter(p => p.stock < 5).length === 0 && (
                       <p className="text-muted" style={{ textAlign: 'center', padding: '1rem' }}>Không có sản phẩm nào sắp hết!</p>
                     )}
@@ -815,7 +854,7 @@ export default function App() {
               <section className="recent-orders">
                 <div className="section-header">
                   <h3>Đơn hàng gần đây</h3>
-                  <button onClick={() => setActiveTab('orders')} className="text-primary">Xem tất cả</button>
+                  <button onClick={() => setActiveTab('orders')} className="btn-view-all">Xem tất cả</button>
                 </div>
                 <div className="order-list">
                   {orders.slice(0, 3).map(order => (
@@ -842,10 +881,10 @@ export default function App() {
               className="page pos-page"
             >
               <div className="pos-search">
-                <div className="search-bar glass-effect">
-                  <Search size={20} className="text-muted" />
+                <div className="search-bar">
+                  <Search size={18} className="text-muted search-icon" />
                   <input
-                    placeholder="Tìm sản phẩm..."
+                    placeholder="Tìm tên sản phẩm..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -942,7 +981,7 @@ export default function App() {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       className="modal-overlay"
-                      style={{ zIndex: 1050 }}
+                      style={{ zIndex: 2040 }}
                       onClick={() => setShowCart(false)}
                     />
                     <motion.div
@@ -965,11 +1004,17 @@ export default function App() {
                               <span>{item.price.toLocaleString()}đ</span>
                             </div>
                             <div className="item-qty">
-                              <button onClick={() => updateCartQuantity(item.id, -1)}><MinusCircle size={20} /></button>
-                              <span>{item.quantity}</span>
-                              <button onClick={() => updateCartQuantity(item.id, 1)}><PlusCircle size={20} /></button>
+                              <button className="qty-btn" onClick={() => updateCartQuantity(item.id, -1)}>
+                                <MinusCircle size={18} />
+                              </button>
+                              <span className="qty-num">{item.quantity}</span>
+                              <button className="qty-btn" onClick={() => updateCartQuantity(item.id, 1)}>
+                                <PlusCircle size={18} />
+                              </button>
                             </div>
-                            <button className="btn-remove" onClick={() => removeFromCart(item.id)}><Trash2 size={18} /></button>
+                            <button className="btn-remove" onClick={() => removeFromCart(item.id)}>
+                              <Trash2 size={18} />
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -1121,7 +1166,14 @@ export default function App() {
                   <div key={order.id} className="order-detailed-card glass-effect">
                     <div className="od-header">
                       <span className="od-id">HD-{order.id.slice(-6).toUpperCase()}</span>
-                      <span className="od-date">{order.date}</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span className="od-date">{order.date}</span>
+                        {order.createdAt?.toDate && (
+                          <span className="od-time" style={{ display: 'block', fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600 }}>
+                            {order.createdAt.toDate().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="od-items">
                       {order.items.map((item, idx) => {
@@ -1248,14 +1300,14 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="bottom-nav glass-effect">
+      {/* Floating Bottom Navigation */}
+      <nav className="bottom-nav">
         {userRole === 'manager' && (
           <button
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
-            <LayoutDashboard size={24} />
+            <LayoutDashboard size={22} />
             <span>Tổng quan</span>
           </button>
         )}
@@ -1263,14 +1315,14 @@ export default function App() {
           className={`nav-item ${activeTab === 'pos' ? 'active' : ''}`}
           onClick={() => setActiveTab('pos')}
         >
-          <ShoppingBag size={24} />
+          <ShoppingBag size={22} />
           <span>{userRole === 'manager' ? 'Bán hàng' : 'Sản phẩm'}</span>
         </button>
         <button
           className={`nav-item ${activeTab === 'tryon' ? 'active' : ''}`}
           onClick={() => setActiveTab('tryon')}
         >
-          <User size={24} />
+          <User size={22} />
           <span>Thử đồ</span>
         </button>
         {userRole === 'manager' && (
@@ -1279,14 +1331,14 @@ export default function App() {
               className={`nav-item ${activeTab === 'products' ? 'active' : ''}`}
               onClick={() => setActiveTab('products')}
             >
-              <Package size={24} />
+              <Package size={22} />
               <span>Kho hàng</span>
             </button>
             <button
               className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}
               onClick={() => setActiveTab('orders')}
             >
-              <History size={24} />
+              <History size={22} />
               <span>Lịch sử</span>
             </button>
           </>
@@ -1336,25 +1388,33 @@ export default function App() {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          background: rgba(245, 158, 11, 0.1);
-          color: var(--primary);
+          background: rgba(245, 158, 11, 0.15);
+          color: #f59e0b;
           padding: 0.5rem 1rem;
-          border-radius: var(--radius-full);
-          font-weight: 600;
+          border-radius: 9999px;
+          font-weight: 800;
           font-size: 0.85rem;
+          border: 1px solid rgba(245, 158, 11, 0.3);
+          transition: all 0.2s;
+          cursor: pointer;
         }
+        .btn-login-manager:active { transform: scale(0.95); }
 
         .btn-logout-manager {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          background: rgba(236, 72, 153, 0.1);
-          color: var(--accent);
+          background: rgba(236, 72, 153, 0.15);
+          color: #ec4899;
           padding: 0.5rem 1rem;
-          border-radius: var(--radius-full);
-          font-weight: 600;
+          border-radius: 9999px;
+          font-weight: 800;
           font-size: 0.85rem;
+          border: 1px solid rgba(236, 72, 153, 0.3);
+          transition: all 0.2s;
+          cursor: pointer;
         }
+        .btn-logout-manager:active { transform: scale(0.95); }
 
         .pin-modal {
           width: 100%;
@@ -1694,38 +1754,43 @@ export default function App() {
 
         /* Stats */
         .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 0.75rem;
-        }
-
-        .stat-card:first-child {
-          grid-column: span 2;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          width: 100%;
         }
 
         .stat-card {
+          width: 100%;
           padding: 1.25rem;
-          border-radius: var(--radius-lg);
+          border-radius: 1.25rem;
           display: flex;
           align-items: center;
           gap: 1rem;
+          background: rgba(30, 41, 59, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
+          transition: transform 0.2s ease;
         }
+        .stat-card:active { transform: scale(0.98); }
 
         .stat-icon {
           width: 48px;
           height: 48px;
-          border-radius: var(--radius-md);
+          border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
         }
 
-        .stat-icon.revenue { background: rgba(245, 158, 11, 0.1); color: var(--primary); }
-        .stat-icon.stock { background: rgba(16, 185, 129, 0.1); color: var(--secondary); }
-        .stat-icon.alert { background: rgba(236, 72, 153, 0.1); color: var(--accent); }
+        .stat-icon.revenue { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .stat-icon.stock { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+        .stat-icon.alert { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
 
-        .stat-info .label { font-size: 0.875rem; color: var(--text-muted); }
-        .stat-info .value { font-size: 1.5rem; font-weight: 700; display: block; }
+        .stat-info { display: flex; flex-direction: column; flex: 1; }
+        .stat-info .label { font-size: 0.8rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-info .value { font-size: 1.3rem; font-weight: 900; display: block; color: #fff; }
 
         .stat-card.clickable { cursor: pointer; transition: border 0.2s, transform 0.1s; }
         .stat-card.clickable:active { transform: scale(0.97); }
@@ -1759,41 +1824,67 @@ export default function App() {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 1rem;
-          margin-top: 0.75rem;
+          margin-top: 1rem;
         }
 
         .btn-action {
           padding: 1.5rem;
-          border-radius: var(--radius-lg);
+          border-radius: 1.25rem;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 0.75rem;
-          font-weight: 600;
-          color: var(--text-main);
+          font-weight: 800;
+          font-size: 0.9rem;
+          color: #fff;
+          background: rgba(30, 41, 59, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
+          transition: transform 0.2s ease;
+          cursor: pointer;
         }
+        .btn-action:active { transform: scale(0.97); }
 
         /* POS Page */
+        .pos-search {
+          margin-bottom: 0.5rem;
+        }
         .pos-search .search-bar {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          padding: 0.2rem 1.25rem;
-          border-radius: var(--radius-full);
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--border);
-          transition: all 0.3s ease;
+          padding: 0.4rem 1.5rem;
+          border-radius: 9999px;
+          background: rgba(30, 41, 59, 0.8);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(10px);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .pos-search .search-bar:focus-within {
-          border-color: var(--primary);
-          background: rgba(255, 255, 255, 0.08);
-          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+          border-color: #f59e0b;
+          background: rgba(30, 41, 59, 0.95);
+          box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.15), 0 4px 20px rgba(0,0,0,0.3);
+          transform: translateY(-2px);
+        }
+        .pos-search .search-bar:focus-within .search-icon {
+          color: #f59e0b;
         }
         .pos-search input {
           background: none;
           border: none;
-          padding: 0.75rem 0;
+          padding: 0.85rem 0;
           box-shadow: none;
+          color: #fff;
+          font-family: inherit;
+          font-size: 0.95rem;
+          width: 100%;
+        }
+        .pos-search input::placeholder {
+          color: #64748b;
+          font-weight: 500;
+        }
+        .pos-search input:focus {
+          outline: none;
         }
 
         .category-scroll {
@@ -1830,9 +1921,9 @@ export default function App() {
         }
 
         .cat-pill.active {
-          background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+          background: #f59e0b;
           color: white;
-          border-color: transparent;
+          border-color: rgba(255, 255, 255, 0.6);
           box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
           transform: translateY(-2px);
         }
@@ -1882,13 +1973,13 @@ export default function App() {
         .product-image img {
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          object-fit: contain;
+          background-color: rgba(255, 255, 255, 0.02);
           transition: transform 0.5s ease;
         }
         .product-card:hover .product-image img {
-          transform: scale(1.1);
+          transform: scale(1.05);
         }
-
         .out-of-stock {
           position: absolute;
           inset: 0;
@@ -1949,7 +2040,7 @@ export default function App() {
 
         .p-price { 
           font-weight: 800; 
-          color: var(--primary); 
+          color: #f59e0b; 
           font-size: 1.1rem; 
           letter-spacing: -0.01em;
         }
@@ -1971,15 +2062,16 @@ export default function App() {
         }
 
         .p-add-icon {
-          width: 28px;
-          height: 28px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
-          background: rgba(245, 158, 11, 0.1);
-          color: var(--primary);
+          background: #f59e0b;
+          color: #fff;
           display: flex;
           align-items: center;
           justify-content: center;
           transition: all 0.2s ease;
+          box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
         }
         .product-card:hover .p-add-icon {
           background: var(--primary);
@@ -2038,7 +2130,7 @@ export default function App() {
           inset: 0;
           background: rgba(0,0,0,0.8);
           backdrop-filter: blur(8px);
-          z-index: 1000;
+          z-index: 2040;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -2052,7 +2144,7 @@ export default function App() {
           right: 0;
           height: 80vh;
           border-radius: 2rem 2rem 0 0;
-          z-index: 1051;
+          z-index: 2050;
           display: flex;
           flex-direction: column;
           padding: 1.5rem;
@@ -2084,8 +2176,57 @@ export default function App() {
         }
         .cart-item img { width: 50px; height: 50px; border-radius: var(--radius-sm); object-fit: cover; }
         .item-info { flex: 1; }
-        .item-qty { display: flex; align-items: center; gap: 0.75rem; }
-        .btn-remove { background: none; color: var(--accent); margin-left: 0.5rem; }
+        
+        .item-qty { 
+          display: flex; 
+          align-items: center; 
+          gap: 0.5rem; 
+          background: rgba(255, 255, 255, 0.05);
+          padding: 0.25rem 0.4rem;
+          border-radius: 9999px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .qty-btn {
+          background: none;
+          color: var(--text-muted);
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          padding: 0.2rem;
+        }
+        .qty-btn:hover { color: #fff; transform: scale(1.1); }
+        .qty-btn:active { transform: scale(0.9); }
+        
+        .qty-num {
+          font-weight: 800;
+          font-size: 0.95rem;
+          min-width: 1.2rem;
+          text-align: center;
+          color: #fff;
+        }
+
+        .btn-remove { 
+          background: rgba(236, 72, 153, 0.1); 
+          color: var(--accent); 
+          margin-left: 0.25rem; 
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(236, 72, 153, 0.2);
+          transition: all 0.2s;
+          cursor: pointer;
+        }
+        .btn-remove:hover {
+          background: rgba(236, 72, 153, 0.2);
+          transform: scale(1.05);
+        }
+        .btn-remove:active { transform: scale(0.95); }
 
         .drawer-footer {
           margin-top: 1.5rem;
@@ -2136,11 +2277,32 @@ export default function App() {
           object-fit: cover;
         }
 
-        .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.5rem; }
+        .form-group input, .form-group select {
+          width: 100%;
+          padding: 0.9rem 1rem;
+          background: rgba(15, 23, 42, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: var(--radius-md);
+          color: white;
+          font-family: inherit;
+          font-size: 0.95rem;
+          transition: all 0.3s ease;
+        }
+        .form-group input:focus, .form-group select:focus {
+          outline: none;
+          border-color: var(--primary);
+          background: rgba(15, 23, 42, 0.9);
+          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+        }
+        .form-group select option { background: var(--bg-card); color: white; }
+        
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-        .form-actions { display: flex; gap: 1rem; margin-top: 1rem; }
-        .btn-cancel { flex: 1; background: var(--bg-card); color: var(--text-main); padding: 0.75rem; border-radius: var(--radius-md); }
-        .btn-submit { flex: 1; background: var(--primary); color: white; padding: 0.75rem; border-radius: var(--radius-md); font-weight: 700; }
+        .form-actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .btn-cancel { flex: 1; background: rgba(255, 255, 255, 0.1); color: var(--text-main); padding: 0.85rem; border-radius: var(--radius-md); font-weight: 700; transition: all 0.2s; border: none; cursor: pointer; }
+        .btn-cancel:active { transform: scale(0.96); }
+        .btn-submit { flex: 1; background: var(--primary); color: #000; padding: 0.85rem; border-radius: var(--radius-md); font-weight: 800; transition: all 0.2s; border: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); cursor: pointer; }
+        .btn-submit:active { transform: scale(0.96); box-shadow: none; }
 
         /* Inventory */
         .inventory-item {
@@ -2193,15 +2355,22 @@ export default function App() {
         /* Bottom Nav */
         .bottom-nav {
           position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 70px;
+          bottom: 1rem;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 85%;
+          max-width: 360px;
+          height: auto;
           display: flex;
           justify-content: space-around;
           align-items: center;
-          border-top: 1px solid var(--border);
-          padding-bottom: 5px;
+          padding: 0.5rem 0.5rem;
+          border-radius: 9999px;
+          background: rgba(15, 23, 42, 0.95);
+          backdrop-filter: blur(30px);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+          z-index: 2000;
         }
 
         .nav-item {
@@ -2211,14 +2380,30 @@ export default function App() {
           background: none;
           color: var(--text-muted);
           gap: 0.25rem;
+          border: none;
+          cursor: pointer;
         }
-        .nav-item span { font-size: 0.7rem; font-weight: 500; }
-        .nav-item.active { color: var(--primary); }
+        .nav-item span { font-size: 0.65rem; font-weight: 800; }
+        .nav-item.active { color: #f59e0b !important; filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.5)); }
 
         .text-primary { color: var(--primary); }
         .text-secondary { color: var(--secondary); }
         .text-accent { color: var(--accent); }
         .text-muted { color: var(--text-muted); }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .btn-view-all {
+          background: rgba(245, 158, 11, 0.1);
+          color: #f59e0b;
+          padding: 0.4rem 0.8rem;
+          border-radius: 9999px;
+          font-size: 0.75rem;
+          font-weight: 800;
+          border: 1px solid rgba(245, 158, 11, 0.2);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .btn-view-all:active { transform: scale(0.95); }
 
         .page-header { display: flex; justify-content: space-between; align-items: center; }
         .btn-add { 
