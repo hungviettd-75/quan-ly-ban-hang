@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from './assets/logo.png';
+import { removeBackground } from '@imgly/background-removal';
 import { db } from './firebase';
 import {
   collection,
@@ -161,22 +162,86 @@ export default function App() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Nén mạnh hơn để đảm bảo an toàn
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
       };
     });
   };
 
-  // Camera handling
+  // === AI XỬ LÝ ẢNH SẢN PHẨM: Tách nền + Nền trắng + Cắt tỉa ===
+  const processProductImage = async (base64Image) => {
+    try {
+      // Chuyển base64 thành blob để thư viện AI xử lý
+      const response = await fetch(base64Image);
+      const imageBlob = await response.blob();
+
+      // Gọi AI tách nền (chạy trực tiếp trên trình duyệt, không cần server)
+      const resultBlob = await removeBackground(imageBlob, {
+        model: 'medium'
+      });
+
+      // Chuyển kết quả thành ảnh để đưa vào khung trắng
+      const resultUrl = URL.createObjectURL(resultBlob);
+      const finalImage = await placeOnWhiteBackground(resultUrl);
+      URL.revokeObjectURL(resultUrl);
+      return finalImage;
+    } catch (error) {
+      console.warn('AI tách nền lỗi, giữ ảnh gốc:', error);
+      // Nếu AI lỗi, vẫn trả về ảnh gốc để cô chú không bị mất ảnh
+      return base64Image;
+    }
+  };
+
+  // Đưa ảnh đã tách nền vào khung trắng vuông, căn giữa sản phẩm
+  const placeOnWhiteBackground = (src) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Tạo khung vuông nền trắng, kích thước bằng cạnh lớn nhất + lề
+        const padding = 40;
+        const size = Math.max(img.width, img.height) + padding * 2;
+        canvas.width = size;
+        canvas.height = size;
+
+        // Tô nền trắng toàn bộ
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+
+        // Vẽ sản phẩm vào chính giữa
+        const offsetX = (size - img.width) / 2;
+        const offsetY = (size - img.height) / 2;
+        ctx.drawImage(img, offsetX, offsetY, img.width, img.height);
+
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = src;
+    });
+  };
+
+  // Chụp ảnh sản phẩm: AI tự động xử lý nền
   const handleImageCapture = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
+    if (!file) return;
+
+    setIsScanning(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const processed = await processProductImage(reader.result);
+        const compressed = await compressImage(processed);
+        setNewProduct(prev => ({ ...prev, image: compressed }));
+      } catch (err) {
+        console.error('Lỗi xử lý ảnh:', err);
+        // Fallback: dùng ảnh gốc nén lại
         const compressed = await compressImage(reader.result);
         setNewProduct(prev => ({ ...prev, image: compressed }));
-      };
-      reader.readAsDataURL(file);
-    }
+      } finally {
+        setIsScanning(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveProduct = async () => {
