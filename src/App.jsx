@@ -136,13 +136,44 @@ export default function App() {
     image: null
   });
 
+  const compressImage = (base64Str, maxWidth = 800, maxHeight = 800) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6)); // Nén mạnh hơn để đảm bảo an toàn
+      };
+    });
+  };
+
   // Camera handling
   const handleImageCapture = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewProduct(prev => ({ ...prev, image: reader.result }));
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result);
+        setNewProduct(prev => ({ ...prev, image: compressed }));
       };
       reader.readAsDataURL(file);
     }
@@ -226,12 +257,12 @@ export default function App() {
       setIsScanning(true);
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const dataUrl = reader.result;
-        setTryOnImage(dataUrl);
+        const compressed = await compressImage(reader.result, 1080, 1440); // Nén nhẹ để giữ độ nét khi thử đồ
+        setTryOnImage(compressed);
 
         // Detect Face with MediaPipe or fallback
         const img = new Image();
-        img.src = dataUrl;
+        img.src = compressed;
         img.onload = async () => {
           let detected = false;
           if (window.aiDetector) {
@@ -574,17 +605,17 @@ export default function App() {
             </div>
             <div className="logo-text">
               <h1 className="logo-name">Cô Huệ Shop</h1>
-              <span className="logo-tagline">Thời trang cao cấp</span>
+              <span className="logo-tagline">Premium Boutique</span>
             </div>
           </div>
           <div className="header-actions">
             {userRole === 'customer' ? (
-              <button className="btn-login-manager glass-effect" onClick={() => setShowPinModal(true)}>
+              <button className="btn-primary" onClick={() => setShowPinModal(true)}>
                 <User size={18} />
                 <span>Quản lý</span>
               </button>
             ) : (
-              <button className="btn-logout-manager glass-effect" onClick={handleLogout}>
+              <button className="btn-logout-manager" onClick={handleLogout}>
                 <LogOut size={18} />
                 <span>Thoát</span>
               </button>
@@ -684,24 +715,24 @@ export default function App() {
             >
               <section className="stats-grid">
                 <div className="stat-card glass-effect">
-                  <div className="stat-icon revenue"><TrendingUp size={24} /></div>
+                  <div className="stat-icon revenue"><TrendingUp size={20} /></div>
                   <div className="stat-info">
                     <span className="label">Doanh thu</span>
                     <span className="value">{stats.revenue.toLocaleString()}đ</span>
                   </div>
                 </div>
-                <div className={`stat-card glass-effect clickable ${expandedStat === 'stock' ? 'active' : ''}`} onClick={() => setExpandedStat(expandedStat === 'stock' ? null : 'stock')}>
-                  <div className="stat-icon stock"><Package size={24} /></div>
+                <div className={`stat-card glass-effect ${expandedStat === 'stock' ? 'active' : ''}`} onClick={() => setExpandedStat(expandedStat === 'stock' ? null : 'stock')}>
+                  <div className="stat-icon stock"><Package size={20} /></div>
                   <div className="stat-info">
                     <span className="label">Tồn kho</span>
                     <span className="value">{stats.totalItems} sp</span>
                   </div>
                 </div>
-                <div className={`stat-card glass-effect clickable ${expandedStat === 'lowStock' ? 'active' : ''}`} onClick={() => setExpandedStat(expandedStat === 'lowStock' ? null : 'lowStock')}>
-                  <div className="stat-icon alert"><AlertTriangle size={24} /></div>
+                <div className={`stat-card glass-effect ${expandedStat === 'lowStock' ? 'active' : ''}`} onClick={() => setExpandedStat(expandedStat === 'lowStock' ? null : 'lowStock')}>
+                  <div className="stat-icon alert"><AlertTriangle size={20} /></div>
                   <div className="stat-info">
                     <span className="label">Sắp hết</span>
-                    <span className="value text-accent">{stats.lowStock} sp</span>
+                    <span className="value" style={{ color: 'var(--error)' }}>{stats.lowStock} sp</span>
                   </div>
                 </div>
               </section>
@@ -749,9 +780,9 @@ export default function App() {
                 <div className="section-header">
                   <div className="ai-title">
                     <CheckCircle2 className="text-secondary" size={20} />
-                    <h3>AI Tư vấn nhập hàng</h3>
+                    <h3 className="text-primary-gradient">AI Tư vấn chiến lược</h3>
                   </div>
-                  <span className="ai-badge">Beta</span>
+                  <span className="ai-badge">SMART</span>
                 </div>
                 <div className="ai-cards">
                   {aiInsights.map((insight, idx) => (
