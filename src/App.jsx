@@ -1095,7 +1095,7 @@ export default function App() {
                       </div>
                       <div className="form-group">
                         <label>Hình ảnh sản phẩm</label>
-                        <div className="camera-upload-zone" onClick={() => !isProcessingImage && document.getElementById('camera-input').click()}>
+                        <div className="camera-upload-zone" style={{ cursor: newProduct.image ? 'default' : 'pointer' }}>
                           {isProcessingImage ? (
                             <div className="upload-placeholder" style={{ flexDirection: 'column', gap: '12px' }}>
                               <motion.div
@@ -1106,21 +1106,24 @@ export default function App() {
                               <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Đang xử lý ảnh...</span>
                             </div>
                           ) : newProduct.image ? (
-                            <img src={newProduct.image} alt="Preview" className="preview-img" />
+                            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                              <img src={newProduct.image} alt="Preview" className="preview-img" />
+                              <button 
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setNewProduct(p => ({...p, image: null})); }}
+                                style={{ position: 'absolute', top: 5, right: 5, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                              >×</button>
+                            </div>
                           ) : (
-                            <div className="upload-placeholder">
+                            <div className="upload-placeholder" style={{ gap: '1rem' }}>
                               <ShoppingBag size={32} className="text-muted" />
-                              <span>Chụp ảnh mẫu mới</span>
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button type="button" className="btn-upload-choice" onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('camera-capture').click(); }}>📷 Chụp mới</button>
+                                <button type="button" className="btn-upload-choice" onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.getElementById('camera-upload').click(); }}>🖼️ Từ Album</button>
+                              </div>
                             </div>
                           )}
-                          <input
-                            id="camera-input"
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            hidden
-                            onChange={handleImageCapture}
-                          />
+                          <input id="camera-capture" type="file" accept="image/*" capture="camera" hidden onChange={handleImageCapture} />
+                          <input id="camera-upload" type="file" accept="image/*" hidden onChange={handleImageCapture} />
                         </div>
                       </div>
                       <div className="form-group">
@@ -1251,11 +1254,15 @@ export default function App() {
               </div>
 
               {!tryOnImage ? (
-                <div className="tryon-setup glass-effect" onClick={() => document.getElementById('tryon-input').click()}>
+                <div className="tryon-setup glass-effect">
                   <User size={64} className="text-muted" />
-                  <h3>Chụp ảnh khách hàng</h3>
-                  <p>Hoặc tải ảnh chân dung lên</p>
-                  <input id="tryon-input" type="file" accept="image/*" onChange={handleTryOnCapture} hidden />
+                  <h3>Ảnh khách hàng</h3>
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                    <button className="btn-upload-choice" onClick={() => document.getElementById('tryon-capture').click()}>📷 Chụp mới</button>
+                    <button className="btn-upload-choice" onClick={() => document.getElementById('tryon-upload').click()}>🖼️ Từ Album</button>
+                  </div>
+                  <input id="tryon-capture" type="file" accept="image/*" capture="camera" onChange={handleTryOnCapture} hidden />
+                  <input id="tryon-upload" type="file" accept="image/*" onChange={handleTryOnCapture} hidden />
                 </div>
               ) : (
                 <div className="tryon-preview-container">

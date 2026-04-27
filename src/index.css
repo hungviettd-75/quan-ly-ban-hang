@@ -310,3 +310,27 @@ body {
 .btn-buy-zoom:active {
   transform: scale(0.95);
 }
+
+/* Upload Choice Buttons */
+.btn-upload-choice {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+.btn-upload-choice:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--primary);
+}
+.btn-upload-choice:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.2);
+}
