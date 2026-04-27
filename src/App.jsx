@@ -68,6 +68,7 @@ export default function App() {
   const [pinInput, setPinInput] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' or 'qr'
+  const [zoomedProduct, setZoomedProduct] = useState(null);
 
   // Try-on State
   const [tryOnImage, setTryOnImage] = useState(null);
@@ -713,6 +714,31 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Zoom Product Modal */}
+      <AnimatePresence>
+        {zoomedProduct && (
+          <div className="modal-overlay" style={{ zIndex: 3000 }} onClick={() => setZoomedProduct(null)}>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="zoom-modal glass-effect"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button className="btn-close-zoom" onClick={() => setZoomedProduct(null)}>×</button>
+              <img src={zoomedProduct.image} alt={zoomedProduct.name} className="zoomed-image" />
+              <div className="zoom-info">
+                <h3>{zoomedProduct.name}</h3>
+                <p className="zoom-price">{zoomedProduct.price.toLocaleString()}đ</p>
+                <button className="btn-buy-zoom" onClick={() => { addToCart(zoomedProduct); setZoomedProduct(null); }}>
+                  <Plus size={18} /> Thêm vào giỏ
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Main Content Area */}
       <main className="main-content">
         <AnimatePresence mode="wait">
@@ -923,7 +949,7 @@ export default function App() {
 
               <div className="product-grid">
                 {filteredProducts.map(product => (
-                  <div key={product.id} className="product-card glass-effect" onClick={() => addToCart(product)}>
+                  <div key={product.id} className="product-card glass-effect" onClick={() => setZoomedProduct(product)}>
                     <div className="product-image">
                       <img src={product.image} alt={product.name} />
                       {product.stock <= 0 && <div className="out-of-stock">Hết hàng</div>}
@@ -940,7 +966,7 @@ export default function App() {
                       <h4 className="p-name">{product.name}</h4>
                       <div className="p-footer">
                         <span className="p-price">{product.price.toLocaleString()}đ</span>
-                        <div className="p-add-icon">
+                        <div className="p-add-icon" onClick={(e) => { e.stopPropagation(); addToCart(product); }}>
                           <Plus size={16} />
                         </div>
                       </div>
@@ -1990,7 +2016,7 @@ export default function App() {
         .product-image img {
           width: 100%;
           height: 100%;
-          object-fit: contain;
+          object-fit: cover;
           background-color: rgba(255, 255, 255, 0.02);
           transition: transform 0.5s ease;
         }
