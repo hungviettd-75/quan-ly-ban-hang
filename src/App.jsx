@@ -164,7 +164,7 @@ export default function App() {
         predictWebcam();
       } catch (err) {
         console.error("Lỗi khởi tạo MediaPipe AR:", err);
-        setFaceShape('Lỗi tải AR. Hãy kiểm tra mạng hoặc thử lại.');
+        setFaceShape('Lỗi AR: ' + (err.message || 'Unknown'));
       }
     };
 
