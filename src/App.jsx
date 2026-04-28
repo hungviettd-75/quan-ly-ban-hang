@@ -281,6 +281,9 @@ export default function App() {
         numFaces: 1
       });
       window.aiDetector = faceLandmarker;
+      } catch (err) {
+        console.error("Lỗi khởi tạo AI Detector:", err);
+      }
     };
     initAI();
   }, []);
