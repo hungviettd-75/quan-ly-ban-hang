@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -53,6 +54,21 @@ const DEFAULT_PRODUCTS = [
   { name: 'Khăn Lụa Họa Tiết', category: 'Khăn quàng', price: 180000, cost: 70000, stock: 12, image: '/scarf_iso.png' },
 ];
 
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY || '');
+const SYSTEM_PROMPT = `
+Bạn là một Chuyên gia Phong cách và Kỹ thuật AR tại một cửa hàng thời trang cao cấp. 
+Nhiệm vụ: Nhận xét hình ảnh THỰC TẾ từ Camera của người dùng.
+
+LUẬT BẮT BUỘC (NẾU VI PHẠM SẼ BỊ PHẠT):
+1. QUY TRÌNH 2 BƯỚC:
+- BƯỚC 1 - XÁC NHẬN: Bạn PHẢI nhìn kỹ ảnh chụp. Khách đang hỏi về [Sản phẩm] trong SYSTEM DATA. Bạn phải tìm xem trên người khách CÓ MANG sản phẩm đó không. (Ví dụ: khách chọn kính thì phải CÓ ĐEO KÍNH trên mắt, kính cận cũng tính; khách chọn nón thì phải CÓ ĐỘI NÓN trên đầu). Nếu bạn THẤY KHÁCH KHÔNG ĐEO/KHÔNG ĐỘI gì cả, BẮT BUỘC PHẢI DỪNG LẠI và nói: "Tôi chưa thấy bạn mang [Sản phẩm], hãy đeo vào để tôi nhận xét nhé".
+- BƯỚC 2 - NHẬN XÉT TINH TẾ: CHỈ KHI thấy khách có mang đồ, hãy khen ngợi theo quy tắc sau:
+  + Nếu là Kính hoặc Nón: Nhận xét sự phù hợp với "dáng mặt" (tỷ lệ khuôn mặt).
+  + Nếu là Túi Xách hoặc Khăn: Nhận xét sự phù hợp với "vóc dáng" và tổng thể trang phục (ví dụ: "chiếc túi xách này rất phù hợp với vóc dáng và phong cách của bạn"). TUYỆT ĐỐI KHÔNG nói túi xách phù hợp với dáng mặt.
+2. ĐỘ DÀI: TỐI ĐA 2-3 CÂU. TRẢ LỜI CỰC KỲ NGẮN GỌN (Dưới 40 từ).
+3. GỌI TÊN SẢN PHẨM: Khi nhận xét, hãy gọi là "chiếc nón này", "kính này", "chiếc túi này".
+`;
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('pos');
   const [userRole, setUserRole] = useState('customer');
@@ -80,10 +96,174 @@ export default function App() {
   const [faceData, setFaceData] = useState(null);
   const [tryOnPos, setTryOnPos] = useState({ top: '15%', left: '25%', width: '50%' });
   const [expandedInsight, setExpandedInsight] = useState(null);
-  const [expandedStat, setExpandedStat] = useState(null); // 'stock' | 'lowStock' | null
+  const [expandedStat, setExpandedStat] = useState(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false); // AI đang xử lý ảnh sản phẩm
+  const [tryOnCategory, setTryOnCategory] = useState('Tất cả');
 
-  // Initialize MediaPipe
+  // AR Try-on State
+  const videoRef = useRef(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [chatResponse, setChatResponse] = useState('');
+  const [faceShape, setFaceShape] = useState('Đang quét...');
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsCameraReady(true);
+      }
+    } catch (err) {
+      console.error("Lỗi truy cập camera:", err);
+      alert("Vui lòng cấp quyền camera trong cài đặt trình duyệt để trải nghiệm thử đồ AR.");
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'tryon') {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = videoRef.current.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+      }
+      setIsCameraReady(false);
+      return;
+    }
+
+    startCamera();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!isCameraReady || activeTab !== 'tryon') return;
+
+    let faceLandmarker;
+    let animationFrameId;
+
+    const initMediaPipeAR = async () => {
+      try {
+        setFaceShape('Đang tải bộ não AI (AR)...');
+        const vision = await window.vision.FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+        );
+        faceLandmarker = await window.vision.FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+            delegate: "GPU" 
+          },
+          outputFaceBlendshapes: true,
+          runningMode: "VIDEO",
+          numFaces: 1,
+        });
+        setFaceShape('Sẵn sàng! Hãy đưa mặt vào khung hình');
+        predictWebcam();
+      } catch (err) {
+        console.error("Lỗi khởi tạo MediaPipe AR:", err);
+        setFaceShape('Lỗi tải AR. Hãy kiểm tra mạng hoặc thử lại.');
+      }
+    };
+
+    const predictWebcam = () => {
+      if (videoRef.current && videoRef.current.readyState >= 2 && faceLandmarker) {
+        let startTimeMs = performance.now();
+        const results = faceLandmarker.detectForVideo(videoRef.current, startTimeMs);
+        
+        if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+          const landmarks = results.faceLandmarks[0];
+          
+          const faceHeight = Math.abs(landmarks[10].y - landmarks[152].y);
+          const faceWidth = Math.abs(landmarks[234].x - landmarks[454].x);
+          const ratio = faceHeight / faceWidth;
+
+          let detectedShape = "Đang phân tích...";
+          if (ratio > 1.6) detectedShape = "Khuôn mặt Dài";
+          else if (ratio > 1.35) detectedShape = "Khuôn mặt Trái xoan (Oval)";
+          else if (ratio > 1.2) detectedShape = "Khuôn mặt Tròn";
+          else detectedShape = "Khuôn mặt Vuông / Chữ điền";
+
+          setFaceShape(detectedShape);
+        } else {
+          setFaceShape('Không tìm thấy khuôn mặt người');
+        }
+      }
+      animationFrameId = requestAnimationFrame(predictWebcam);
+    };
+
+    initMediaPipeAR();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      if (faceLandmarker) faceLandmarker.close();
+    };
+  }, [isCameraReady, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'tryon' && products.length > 0) {
+      const filtered = tryOnCategory === 'Tất cả' 
+        ? products 
+        : products.filter(p => p.category === tryOnCategory);
+      
+      // Select the first product of the filtered list if current selected is not in the list
+      if (filtered.length > 0 && (!selectedTryOnProduct || (tryOnCategory !== 'Tất cả' && selectedTryOnProduct.category !== tryOnCategory))) {
+        setSelectedTryOnProduct(filtered[0]);
+      }
+    }
+  }, [activeTab, products, tryOnCategory, selectedTryOnProduct]);
+
+  const askAIAgent = async () => {
+    if (!selectedTryOnProduct) return;
+    setChatResponse("AI đang phân tích hình ảnh thực tế...");
+    
+    let base64Image = "";
+    if (videoRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        base64Image = dataUrl.split(",")[1];
+      }
+    }
+
+    const systemData = {
+      detected_face_shape: faceShape,
+      lighting: "Đủ sáng",
+      distance_to_camera: "40cm",
+      selected_product: selectedTryOnProduct.name
+    };
+
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+      const promptParts = [
+        `${SYSTEM_PROMPT}\n\nUser: [SYSTEM DATA: ${JSON.stringify(systemData)}] \nSản phẩm "${selectedTryOnProduct.name}" này có hợp với tôi không? Hãy nhìn vào ảnh thực tế của tôi.`
+      ];
+
+      if (base64Image) {
+        promptParts.push({
+          inlineData: {
+            data: base64Image,
+            mimeType: "image/jpeg"
+          }
+        });
+      }
+
+      const result = await model.generateContent(promptParts);
+      setChatResponse(result.response.text());
+    } catch (e) {
+      console.error("Gemini Error:", e);
+      if (e.message && e.message.includes('429')) {
+        setChatResponse("Chuyên gia AI đang bận (do quá tải giới hạn người dùng). Vui lòng đợi khoảng 1 phút rồi thử lại nhé!");
+      } else {
+        setChatResponse("Lỗi kết nối AI: Hệ thống tạm thời gián đoạn.");
+      }
+    }
+  };  // Initialize MediaPipe
   useEffect(() => {
     const initAI = async () => {
       if (!window.vision) return;
@@ -1248,103 +1428,87 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="page tryon-page"
+              style={{ position: 'relative', height: 'calc(100vh - 90px - 70px)', overflow: 'hidden', background: '#000', margin: '-1rem', borderRadius: '0' }}
             >
-              <div className="page-header">
-                <h2>Thử đồ ảo AI</h2>
-              </div>
-
-              {!tryOnImage ? (
-                <div className="tryon-setup glass-effect">
-                  <User size={64} className="text-muted" />
-                  <h3>Ảnh khách hàng</h3>
-                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                    <button className="btn-upload-choice" onClick={() => document.getElementById('tryon-capture').click()}>📷 Chụp mới</button>
-                    <button className="btn-upload-choice" onClick={() => document.getElementById('tryon-upload').click()}>🖼️ Từ Album</button>
-                  </div>
-                  <input id="tryon-capture" type="file" accept="image/*" capture="camera" onChange={handleTryOnCapture} hidden />
-                  <input id="tryon-upload" type="file" accept="image/*" onChange={handleTryOnCapture} hidden />
-                </div>
-              ) : (
-                <div className="tryon-preview-container">
-                  <div className="tryon-canvas glass-effect">
-                    <img src={tryOnImage} alt="Customer" className="customer-photo" />
-
-                    {isScanning && (
-                      <motion.div
-                        initial={{ top: 0 }}
-                        animate={{ top: '100%' }}
-                        transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                        className="scan-line"
-                      />
-                    )}
-
-                    {selectedTryOnProduct && (
-                      <motion.img
-                        drag
-                        dragMomentum={false}
-                        src={selectedTryOnProduct.processedImage || selectedTryOnProduct.image}
-                        className={`tryon-product-overlay ${autoAligned ? 'aligned' : ''}`}
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{
-                          scale: tryOnScale,
-                          top: autoAligned ? tryOnPos.top : '10%',
-                          left: autoAligned ? tryOnPos.left : '25%',
-                          width: tryOnPos.width,
-                          opacity: 1,
-                          rotateY: isFlipped ? 180 : 0
-                        }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                      />
-                    )}
-                  </div>
-
-                  <div className="tryon-ai-status">
-                    {isScanning ? (
-                      <span className="text-primary pulse">AI đang phân tích và ghép ảnh...</span>
-                    ) : (
-                      <div className="tryon-actions fade-in">
-                        {selectedTryOnProduct && (
-                          <>
-                            <button className="btn-export-tryon" onClick={exportTryOnImage}>
-                              <CheckCircle2 size={20} />
-                              Lưu ảnh thành phẩm
-                            </button>
-                            <button className="btn-buy-tryon" onClick={() => { addToCart(selectedTryOnProduct); alert('Đã thêm vào giỏ hàng!'); }}>
-                              <ShoppingBag size={20} />
-                              Mua ngay {selectedTryOnProduct.name}
-                            </button>
-                          </>
-                        )}
-                        <div className="tryon-sub-actions">
-                          <button className="btn-reset-tryon" onClick={() => { setTryOnImage(null); setSelectedTryOnProduct(null); setIsFlipped(false); }}>Chụp ảnh khác</button>
-                          {selectedTryOnProduct && (
-                            <div className="scale-tools">
-                              <button onClick={() => setIsFlipped(!isFlipped)} className={isFlipped ? 'active' : ''}>Lật</button>
-                              <button onClick={() => setTryOnScale(s => s + 0.05)}>+</button>
-                              <button onClick={() => setTryOnScale(s => Math.max(0.1, s - 0.05))}>-</button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="tryon-product-label">
-                    <span>Chọn mẫu để thử:</span>
-                  </div>
-                  <div className="tryon-product-list">
-                    {products.map(p => (
-                      <div
-                        key={p.id}
-                        className={`tryon-p-card ${selectedTryOnProduct?.id === p.id ? 'active' : ''}`}
-                        onClick={() => handleAutoAlign(p)}
-                      >
-                        <img src={p.image} alt="" className="ai-processed-thumb" />
-                      </div>
-                    ))}
+              {!isCameraReady && (
+                <div style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.9)', padding: '1.5rem', textAlign: 'center' }}>
+                  <div>
+                    <h2 style={{ color: 'white', fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Yêu cầu quyền Camera</h2>
+                    <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem', marginBottom: '2rem' }}>Vui lòng cấp quyền camera để trải nghiệm thử đồ AR.</p>
+                    <button onClick={startCamera} style={{ background: 'white', color: 'black', fontWeight: 'bold', padding: '1rem 2.5rem', borderRadius: '1rem', border: 'none', cursor: 'pointer' }}>Bật Camera ngay</button>
                   </div>
                 </div>
               )}
+
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, transform: 'scaleX(-1)' }} 
+              />
+              
+              <div style={{ position: 'absolute', bottom: 0, width: '100%', padding: '1.5rem', zIndex: 20, background: 'linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0.8), transparent)' }}>
+                
+                {/* Category Filter */}
+                <div style={{ display: 'flex', overflowX: 'auto', gap: '0.5rem', marginBottom: '0.5rem', paddingBottom: '0.25rem', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                  {CATEGORIES.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setTryOnCategory(cat)}
+                      style={{
+                        whiteSpace: 'nowrap', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)',
+                        background: tryOnCategory === cat ? '#f59e0b' : 'rgba(0,0,0,0.5)',
+                        color: tryOnCategory === cat ? 'white' : 'rgba(255,255,255,0.6)', cursor: 'pointer'
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Product Selector */}
+                <div style={{ display: 'flex', overflowX: 'auto', gap: '0.5rem', marginBottom: '1rem', paddingBottom: '0.5rem', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                  {products.filter(p => tryOnCategory === 'Tất cả' || p.category === tryOnCategory).map((prod) => (
+                    <button
+                      key={prod.id}
+                      onClick={() => setSelectedTryOnProduct(prod)}
+                      style={{ 
+                        whiteSpace: 'nowrap', padding: '0.5rem 1rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)',
+                        background: selectedTryOnProduct?.id === prod.id ? 'white' : 'rgba(255,255,255,0.2)',
+                        color: selectedTryOnProduct?.id === prod.id ? 'black' : 'white', cursor: 'pointer'
+                      }}
+                    >
+                      {prod.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.2)', padding: '1.25rem', borderRadius: '1.5rem', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem', fontWeight: 600 }}>
+                    Dáng mặt: {faceShape}
+                  </p>
+                  
+                  <div style={{ minHeight: '60px', marginBottom: '1rem' }}>
+                    {chatResponse ? (
+                      <p style={{ color: 'white', fontWeight: 500, fontSize: '0.875rem', lineHeight: 1.6 }}>{chatResponse}</p>
+                    ) : (
+                      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem', fontStyle: 'italic' }}>Hãy chọn sản phẩm bên trên và hỏi ý kiến chuyên gia...</p>
+                    )}
+                  </div>
+
+                  <button 
+                    onClick={askAIAgent}
+                    style={{ width: '100%', background: 'white', color: 'black', fontWeight: 600, padding: '0.875rem', borderRadius: '1rem', border: 'none', cursor: 'pointer' }}
+                  >
+                    Hỏi chuyên gia về {
+                      selectedTryOnProduct?.name?.includes('Nón') ? 'nón' :
+                      selectedTryOnProduct?.name?.includes('Kính') ? 'kính' :
+                      selectedTryOnProduct?.name?.includes('Khăn') ? 'khăn' :
+                      selectedTryOnProduct?.name?.includes('Túi') ? 'túi' : 'sản phẩm'
+                    }
+                  </button>
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@mediapipe/tasks-vision": "^0.10.34",
     "firebase": "^12.12.1",
     "framer-motion": "^12.38.0",
@@ -21,6 +22,7 @@
     "@eslint/js": "^10.0.1",
     "@types/react": "^18.2.14",
     "@types/react-dom": "^18.2.3",
+    "@vitejs/plugin-basic-ssl": "^1.1.0",
     "@vitejs/plugin-react": "4.2.0",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
