@@ -149,7 +149,7 @@ export default function App() {
       try {
         setFaceShape('Đang tải bộ não AI (AR)...');
         const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
         faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
           baseOptions: {
@@ -269,7 +269,7 @@ export default function App() {
     const initAI = async () => {
       try {
         const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
         const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
