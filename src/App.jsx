@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { FilesetResolver, FaceLandmarker } from '@mediapipe/tasks-vision';
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -147,13 +148,13 @@ export default function App() {
     const initMediaPipeAR = async () => {
       try {
         setFaceShape('Đang tải bộ não AI (AR)...');
-        const vision = await window.vision.FilesetResolver.forVisionTasks(
+        const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
         );
-        faceLandmarker = await window.vision.FaceLandmarker.createFromOptions(vision, {
+        faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-            delegate: "GPU" 
+            delegate: "CPU" 
           },
           outputFaceBlendshapes: true,
           runningMode: "VIDEO",
@@ -266,14 +267,14 @@ export default function App() {
   };  // Initialize MediaPipe
   useEffect(() => {
     const initAI = async () => {
-      if (!window.vision) return;
-      const vision = await window.vision.FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-      );
-      const faceLandmarker = await window.vision.FaceLandmarker.createFromOptions(vision, {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+        );
+        const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-          delegate: "GPU"
+          delegate: "CPU"
         },
         outputFaceBlendshapes: true,
         runningMode: "IMAGE",
