@@ -239,7 +239,7 @@ export default function App() {
     };
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
       const promptParts = [
         `${SYSTEM_PROMPT}\n\nUser: [SYSTEM DATA: ${JSON.stringify(systemData)}] \nSản phẩm "${selectedTryOnProduct.name}" này có hợp với tôi không? Hãy nhìn vào ảnh thực tế của tôi.`
       ];
