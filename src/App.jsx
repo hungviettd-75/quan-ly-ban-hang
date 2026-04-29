@@ -62,12 +62,13 @@ Nhiệm vụ: Nhận xét hình ảnh THỰC TẾ từ Camera của người dù
 
 LUẬT BẮT BUỘC (NẾU VI PHẠM SẼ BỊ PHẠT):
 1. QUY TRÌNH 2 BƯỚC:
-- BƯỚC 1 - XÁC NHẬN: Bạn PHẢI nhìn kỹ ảnh chụp. Khách đang hỏi về [Sản phẩm] trong SYSTEM DATA. Bạn phải tìm xem trên người khách CÓ MANG sản phẩm đó không. (Ví dụ: khách chọn kính thì phải CÓ ĐEO KÍNH trên mắt, kính cận cũng tính; khách chọn nón thì phải CÓ ĐỘI NÓN trên đầu). Nếu bạn THẤY KHÁCH KHÔNG ĐEO/KHÔNG ĐỘI gì cả, BẮT BUỘC PHẢI DỪNG LẠI và nói: "Tôi chưa thấy bạn mang [Sản phẩm], hãy đeo vào để tôi nhận xét nhé".
-- BƯỚC 2 - NHẬN XÉT TINH TẾ: CHỈ KHI thấy khách có mang đồ, hãy khen ngợi theo quy tắc sau:
-  + Nếu là Kính hoặc Nón: Nhận xét sự phù hợp với "dáng mặt" (tỷ lệ khuôn mặt).
-  + Nếu là Túi Xách hoặc Khăn: Nhận xét sự phù hợp với "vóc dáng" và tổng thể trang phục (ví dụ: "chiếc túi xách này rất phù hợp với vóc dáng và phong cách của bạn"). TUYỆT ĐỐI KHÔNG nói túi xách phù hợp với dáng mặt.
+- BƯỚC 1 - XÁC NHẬN BẰNG MẮT: Bạn PHẢI quét kỹ ảnh chụp xem khách có mang/cầm [Sản phẩm] (theo SYSTEM DATA) hay không. 
+  + Với Kính/Nón: Phải thấy đeo trên mặt/đầu.
+  + Với Túi xách/Khăn/Phụ kiện: DO GÓC CHỤP SELFIE RẤT HẸP, khách thường chỉ cầm lên ngang ngực hoặc bị khuất một phần. CHỈ CẦN THẤY có sự xuất hiện của túi xách/khăn trong khung hình (dù chỉ một góc hoặc cầm hờ) là PHẢI CÔNG NHẬN.
+  + Nếu HOÀN TOÀN KHÔNG THẤY sản phẩm nào trong hình, hãy nói: "Tôi chưa thấy bạn cầm/mang [Sản phẩm], hãy đưa nó vào khung hình để tôi nhận xét nhé".
+- BƯỚC 2 - NHẬN XÉT: Phải dựa VÀO CHÍNH HÌNH ẢNH sản phẩm khách đang cầm trên tay để nhận xét (nhìn màu sắc, kiểu dáng trong ảnh). Nhận xét sự phù hợp với vóc dáng, màu da và trang phục khách đang mặc.
 2. ĐỘ DÀI: TỐI ĐA 2-3 CÂU. TRẢ LỜI CỰC KỲ NGẮN GỌN (Dưới 40 từ).
-3. GỌI TÊN SẢN PHẨM: Khi nhận xét, hãy gọi là "chiếc nón này", "kính này", "chiếc túi này".
+3. GỌI TÊN SẢN PHẨM: Khi nhận xét, hãy gọi là "chiếc nón này", "chiếc túi này". TUYỆT ĐỐI KHÔNG nói túi xách phù hợp với dáng mặt.
 `;
 
 export default function App() {
@@ -221,22 +222,36 @@ export default function App() {
     
     let base64Image = "";
     if (videoRef.current) {
+      const video = videoRef.current;
       const canvas = document.createElement("canvas");
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      // Thuật toán tối ưu Token: Resize ảnh xuống max 512px
+      const MAX_DIM = 512;
+      let w = video.videoWidth;
+      let h = video.videoHeight;
+      
+      if (w > h && w > MAX_DIM) {
+        h = Math.round((h * MAX_DIM) / w);
+        w = MAX_DIM;
+      } else if (h > MAX_DIM) {
+        w = Math.round((w * MAX_DIM) / h);
+        h = MAX_DIM;
+      }
+      
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        ctx.drawImage(video, 0, 0, w, h);
+        // Tối ưu nén JPEG còn 50% chất lượng để tiết kiệm tối đa Token và Bandwidth
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.5);
         base64Image = dataUrl.split(",")[1];
       }
     }
 
+    // Tối ưu độ dài prompt bằng cách thu gọn JSON data
     const systemData = {
-      detected_face_shape: faceShape,
-      lighting: "Đủ sáng",
-      distance_to_camera: "40cm",
-      selected_product: selectedTryOnProduct.name
+      shape: faceShape,
+      item: selectedTryOnProduct.name
     };
 
     try {
@@ -259,9 +274,9 @@ export default function App() {
     } catch (e) {
       console.error("Gemini Error:", e);
       if (e.message && e.message.includes('429')) {
-        setChatResponse("Chuyên gia AI đang bận (do quá tải giới hạn người dùng). Vui lòng đợi khoảng 1 phút rồi thử lại nhé!");
+        setChatResponse("Lỗi 429: Hết hạn mức API. Vui lòng tạo API Key mới.");
       } else {
-        setChatResponse("Lỗi kết nối AI: Hệ thống tạm thời gián đoạn.");
+        setChatResponse("Lỗi: " + (e.message || "Hệ thống tạm thời gián đoạn."));
       }
     }
   };  // Initialize MediaPipe
