@@ -111,7 +111,7 @@ export default function App() {
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
+        video: {
           facingMode: 'user',
           width: { ideal: 1280 },
           height: { ideal: 720 }
@@ -155,7 +155,7 @@ export default function App() {
         faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-            delegate: "CPU" 
+            delegate: "CPU"
           },
           outputFaceBlendshapes: true,
           runningMode: "VIDEO",
@@ -173,10 +173,10 @@ export default function App() {
       if (videoRef.current && videoRef.current.readyState >= 2 && faceLandmarker) {
         let startTimeMs = performance.now();
         const results = faceLandmarker.detectForVideo(videoRef.current, startTimeMs);
-        
+
         if (results.faceLandmarks && results.faceLandmarks.length > 0) {
           const landmarks = results.faceLandmarks[0];
-          
+
           const faceHeight = Math.abs(landmarks[10].y - landmarks[152].y);
           const faceWidth = Math.abs(landmarks[234].x - landmarks[454].x);
           const ratio = faceHeight / faceWidth;
@@ -205,10 +205,10 @@ export default function App() {
 
   useEffect(() => {
     if (activeTab === 'tryon' && products.length > 0) {
-      const filtered = tryOnCategory === 'Tất cả' 
-        ? products 
+      const filtered = tryOnCategory === 'Tất cả'
+        ? products
         : products.filter(p => p.category === tryOnCategory);
-      
+
       // Select the first product of the filtered list if current selected is not in the list
       if (filtered.length > 0 && (!selectedTryOnProduct || (tryOnCategory !== 'Tất cả' && selectedTryOnProduct.category !== tryOnCategory))) {
         setSelectedTryOnProduct(filtered[0]);
@@ -219,7 +219,7 @@ export default function App() {
   const askAIAgent = async () => {
     if (!selectedTryOnProduct) return;
     setChatResponse("AI đang phân tích hình ảnh thực tế...");
-    
+
     let base64Image = "";
     if (videoRef.current) {
       const video = videoRef.current;
@@ -228,7 +228,7 @@ export default function App() {
       const MAX_DIM = 512;
       let w = video.videoWidth;
       let h = video.videoHeight;
-      
+
       if (w > h && w > MAX_DIM) {
         h = Math.round((h * MAX_DIM) / w);
         w = MAX_DIM;
@@ -236,7 +236,7 @@ export default function App() {
         w = Math.round((w * MAX_DIM) / h);
         h = MAX_DIM;
       }
-      
+
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext("2d");
@@ -287,15 +287,15 @@ export default function App() {
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
         const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-          delegate: "CPU"
-        },
-        outputFaceBlendshapes: true,
-        runningMode: "IMAGE",
-        numFaces: 1
-      });
-      window.aiDetector = faceLandmarker;
+          baseOptions: {
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+            delegate: "CPU"
+          },
+          outputFaceBlendshapes: true,
+          runningMode: "IMAGE",
+          numFaces: 1
+        });
+        window.aiDetector = faceLandmarker;
       } catch (err) {
         console.error("Lỗi khởi tạo AI Detector:", err);
       }
@@ -896,7 +896,7 @@ export default function App() {
               {paymentMethod === 'qr' && (
                 <div className="qr-container fade-in">
                   <img
-                    src={`https://img.vietqr.io/image/970416-0123456789-compact.png?amount=${cart.reduce((s, i) => s + (i.price * i.quantity), 0)}&addInfo=Thanh+toan+Co+Hue+Shop`}
+                    src={`https://img.vietqr.io/image/MBBank-0000135465454-compact.png?amount=${cart.reduce((s, i) => s + (i.price * i.quantity), 0)}&addInfo=Thanh+toan+Co+Hue+Shop`}
                     alt="VietQR"
                     className="qr-img"
                   />
@@ -1307,8 +1307,8 @@ export default function App() {
                           ) : newProduct.image ? (
                             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                               <img src={newProduct.image} alt="Preview" className="preview-img" />
-                              <button 
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setNewProduct(p => ({...p, image: null})); }}
+                              <button
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setNewProduct(p => ({ ...p, image: null })); }}
                                 style={{ position: 'absolute', top: 5, right: 5, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '50%', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                               >×</button>
                             </div>
@@ -1459,15 +1459,15 @@ export default function App() {
                 </div>
               )}
 
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, transform: 'scaleX(-1)' }} 
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, transform: 'scaleX(-1)' }}
               />
-              
+
               <div style={{ position: 'absolute', bottom: 0, width: '100%', padding: '1.5rem', zIndex: 20, background: 'linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0.8), transparent)' }}>
-                
+
                 {/* Category Filter */}
                 <div style={{ display: 'flex', overflowX: 'auto', gap: '0.5rem', marginBottom: '0.5rem', paddingBottom: '0.25rem', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
                   {CATEGORIES.map(cat => (
@@ -1491,7 +1491,7 @@ export default function App() {
                     <button
                       key={prod.id}
                       onClick={() => setSelectedTryOnProduct(prod)}
-                      style={{ 
+                      style={{
                         whiteSpace: 'nowrap', padding: '0.5rem 1rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)',
                         background: selectedTryOnProduct?.id === prod.id ? 'white' : 'rgba(255,255,255,0.2)',
                         color: selectedTryOnProduct?.id === prod.id ? 'black' : 'white', cursor: 'pointer'
@@ -1506,7 +1506,7 @@ export default function App() {
                   <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem', fontWeight: 600 }}>
                     Dáng mặt: {faceShape}
                   </p>
-                  
+
                   <div style={{ minHeight: '60px', marginBottom: '1rem' }}>
                     {chatResponse ? (
                       <p style={{ color: 'white', fontWeight: 500, fontSize: '0.875rem', lineHeight: 1.6 }}>{chatResponse}</p>
@@ -1515,15 +1515,15 @@ export default function App() {
                     )}
                   </div>
 
-                  <button 
+                  <button
                     onClick={askAIAgent}
                     style={{ width: '100%', background: 'white', color: 'black', fontWeight: 600, padding: '0.875rem', borderRadius: '1rem', border: 'none', cursor: 'pointer' }}
                   >
                     Hỏi chuyên gia về {
                       selectedTryOnProduct?.name?.includes('Nón') ? 'nón' :
-                      selectedTryOnProduct?.name?.includes('Kính') ? 'kính' :
-                      selectedTryOnProduct?.name?.includes('Khăn') ? 'khăn' :
-                      selectedTryOnProduct?.name?.includes('Túi') ? 'túi' : 'sản phẩm'
+                        selectedTryOnProduct?.name?.includes('Kính') ? 'kính' :
+                          selectedTryOnProduct?.name?.includes('Khăn') ? 'khăn' :
+                            selectedTryOnProduct?.name?.includes('Túi') ? 'túi' : 'sản phẩm'
                     }
                   </button>
                 </div>
