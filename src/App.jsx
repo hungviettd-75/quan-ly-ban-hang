@@ -24,7 +24,8 @@ import {
   Filter,
   Heart,
   Wind,
-  Layers
+  Layers,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from './assets/logo.png';
@@ -87,6 +88,29 @@ export default function App() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' or 'qr'
   const [zoomedProduct, setZoomedProduct] = useState(null);
+  const [isProcessingPayOS, setIsProcessingPayOS] = useState(false);
+  const [appSettings, setAppSettings] = useState({
+    shopName: "Cô Huệ Shop",
+    shopAddress: "Ô 93, chợ Long Khánh, Đồng Nai.",
+    shopPhone: "0342.035.370",
+    payosClientId: "",
+    payosApiKey: "",
+    payosChecksumKey: ""
+  });
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings');
+      const data = await response.json();
+      setAppSettings(data);
+    } catch (err) {
+      console.error("Lỗi lấy cài đặt:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
 
   // Try-on State
   const [tryOnImage, setTryOnImage] = useState(null);
@@ -301,6 +325,24 @@ export default function App() {
       }
     };
     initAI();
+  }, []);
+
+  // Kiểm tra kết quả thanh toán từ PayOS khi quay lại trang
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const code = urlParams.get('code');
+    const orderCode = urlParams.get('orderCode');
+
+    if (code === '00' && status === 'PAID') {
+      alert(`Thanh toán thành công đơn hàng #${orderCode}! Cảm ơn bạn.`);
+      setCart([]); // Xóa giỏ hàng
+      // Xóa các query params trên URL để tránh hiện lại alert khi reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get('cancel') === 'true') {
+      alert("Bạn đã hủy thanh toán.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   // Firebase Data Sync
@@ -694,12 +736,58 @@ export default function App() {
 
   const confirmPayment = async () => {
     const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    // Nếu chọn QR -> Gọi API backend PayOS
+    if (paymentMethod === 'qr') {
+      setIsProcessingPayOS(true);
+      try {
+        const response = await fetch('/create-payment-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: total,
+            returnUrl: window.location.href, // Quay lại trang này sau khi quét xong
+            cancelUrl: window.location.href
+          })
+        });
+        const resData = await response.json();
+        
+        if (resData.error === 0 && resData.data.checkoutUrl) {
+          // Lưu tạm đơn hàng trạng thái pending (tùy chọn)
+          const orderData = {
+            createdAt: serverTimestamp(),
+            date: new Date().toISOString().split('T')[0],
+            items: cart.map(item => ({ productId: item.id, quantity: item.quantity, price: item.price })),
+            total: total,
+            method: 'payos',
+            status: 'pending',
+            orderCode: resData.data.orderCode
+          };
+          await addDoc(collection(db, "orders"), orderData);
+
+          // Chuyển hướng sang trang Checkout chứa mã QR của PayOS
+          window.location.href = resData.data.checkoutUrl;
+          return;
+        } else {
+          alert("Lỗi PayOS: " + resData.message);
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Lỗi kết nối máy chủ thanh toán PayOS. Vui lòng kiểm tra server.js đang chạy.");
+      } finally {
+        setIsProcessingPayOS(false);
+      }
+      return;
+    }
+
+    // Tiền mặt: Xử lý bình thường
     const orderData = {
       createdAt: serverTimestamp(),
       date: new Date().toISOString().split('T')[0],
       items: cart.map(item => ({ productId: item.id, quantity: item.quantity, price: item.price })),
       total: total,
-      method: paymentMethod
+      method: paymentMethod,
+      status: 'completed'
     };
 
     try {
@@ -815,7 +903,7 @@ export default function App() {
               <img src={logo} alt="Logo" className="logo-img" />
             </div>
             <div className="logo-text">
-              <h1 className="logo-name">Cô Huệ Shop</h1>
+              <h1 className="logo-name">{appSettings.shopName}</h1>
               <span className="logo-tagline">Premium Boutique</span>
             </div>
           </div>
@@ -889,24 +977,23 @@ export default function App() {
                   onClick={() => setPaymentMethod('qr')}
                 >
                   <CheckCircle2 size={24} />
-                  <span>Quét mã VietQR</span>
+                  <span>Quét mã PayOS</span>
                 </div>
               </div>
 
               {paymentMethod === 'qr' && (
                 <div className="qr-container fade-in">
-                  <img
-                    src={`https://img.vietqr.io/image/MBBank-0000135465454-compact.png?amount=${cart.reduce((s, i) => s + (i.price * i.quantity), 0)}&addInfo=Thanh+toan+Co+Hue+Shop`}
-                    alt="VietQR"
-                    className="qr-img"
-                  />
-                  <p className="qr-hint">Mã QR tự động tạo theo số tiền đơn hàng</p>
+                  <p className="qr-hint">
+                    Hệ thống sẽ chuyển bạn đến trang thanh toán an toàn của PayOS để quét mã QR tự động.
+                  </p>
                 </div>
               )}
 
               <div className="form-actions">
-                <button className="btn-cancel" onClick={() => setShowPaymentModal(false)}>Hủy</button>
-                <button className="btn-submit" onClick={confirmPayment}>Xác nhận thanh toán</button>
+                <button className="btn-cancel" onClick={() => setShowPaymentModal(false)} disabled={isProcessingPayOS}>Hủy</button>
+                <button className="btn-submit" onClick={confirmPayment} disabled={isProcessingPayOS}>
+                  {isProcessingPayOS ? 'Đang tạo link PayOS...' : 'Xác nhận thanh toán'}
+                </button>
               </div>
             </motion.div>
           </div>
@@ -1180,11 +1267,11 @@ export default function App() {
                 <div className="contact-details">
                   <div className="contact-item">
                     <MapPin size={18} className="text-primary" />
-                    <span>Ô 93, chợ Long Khánh, Đồng Nai.</span>
+                    <span>{appSettings.shopAddress}</span>
                   </div>
                   <div className="contact-item">
                     <MessageCircle size={18} className="text-secondary" />
-                    <span>SĐT/Zalo: 0342.035.370</span>
+                    <span>SĐT/Zalo: {appSettings.shopPhone}</span>
                   </div>
                 </div>
               </div>
@@ -1530,6 +1617,98 @@ export default function App() {
               </div>
             </motion.div>
           )}
+
+          {activeTab === 'settings' && userRole === 'manager' && (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="page settings-page"
+            >
+              <div className="page-header" style={{ marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 900 }}>Cấu hình hệ thống</h2>
+              </div>
+
+              <section className="glass-effect" style={{ padding: '1.5rem', borderRadius: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <h3 style={{ fontSize: '1.1rem', color: 'var(--primary)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Thông tin cửa hàng</h3>
+                <div className="form-group">
+                  <label>Tên cửa hàng</label>
+                  <input
+                    type="text"
+                    value={appSettings.shopName}
+                    onChange={(e) => setAppSettings({ ...appSettings, shopName: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Địa chỉ</label>
+                  <input
+                    type="text"
+                    value={appSettings.shopAddress}
+                    onChange={(e) => setAppSettings({ ...appSettings, shopAddress: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Số điện thoại / Zalo</label>
+                  <input
+                    type="text"
+                    value={appSettings.shopPhone}
+                    onChange={(e) => setAppSettings({ ...appSettings, shopPhone: e.target.value })}
+                  />
+                </div>
+              </section>
+
+              <section className="glass-effect" style={{ padding: '1.5rem', borderRadius: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.1rem', color: '#34d399', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Kết nối PayOS</h3>
+                <div className="form-group">
+                  <label>PayOS Client ID</label>
+                  <input
+                    type="password"
+                    value={appSettings.payosClientId}
+                    onChange={(e) => setAppSettings({ ...appSettings, payosClientId: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>PayOS API Key</label>
+                  <input
+                    type="password"
+                    value={appSettings.payosApiKey}
+                    onChange={(e) => setAppSettings({ ...appSettings, payosApiKey: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>PayOS Checksum Key</label>
+                  <input
+                    type="password"
+                    value={appSettings.payosChecksumKey}
+                    onChange={(e) => setAppSettings({ ...appSettings, payosChecksumKey: e.target.value })}
+                  />
+                </div>
+              </section>
+
+              <button
+                className="btn-submit"
+                style={{ marginTop: '2rem', padding: '1.25rem', fontSize: '1rem' }}
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/settings', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(appSettings)
+                    });
+                    const result = await response.json();
+                    if (result.error === 0) {
+                      alert("Đã cập nhật cấu hình thành công!");
+                    }
+                  } catch (err) {
+                    alert("Lỗi khi lưu cài đặt!");
+                  }
+                }}
+              >
+                LƯU TẤT CẢ THAY ĐỔI
+              </button>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -1573,6 +1752,13 @@ export default function App() {
             >
               <History size={22} />
               <span>Lịch sử</span>
+            </button>
+            <button
+              className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+              onClick={() => setActiveTab('settings')}
+            >
+              <Settings size={22} />
+              <span>Cài đặt</span>
             </button>
           </>
         )}
@@ -1701,12 +1887,13 @@ export default function App() {
         .qr-container {
           text-align: center;
           margin-bottom: 1.5rem;
-          padding: 1rem;
-          background: white;
-          border-radius: var(--radius-md);
+          padding: 1.25rem;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 1.25rem;
         }
-        .qr-img { width: 100%; max-width: 200px; height: auto; }
-        .qr-hint { color: #666; font-size: 0.75rem; margin-top: 0.5rem; }
+        .qr-img { width: 100%; max-width: 200px; height: auto; border-radius: 1rem; }
+        .qr-hint { color: #cbd5e1; font-size: 0.85rem; line-height: 1.5; margin-top: 0.5rem; }
 
         /* AI Advisor */
         .ai-advisor {

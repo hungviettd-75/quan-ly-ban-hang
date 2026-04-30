@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "concurrently \"vite --host\" \"node server.js\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -12,6 +12,11 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@mediapipe/tasks-vision": "^0.10.34",
+    "@payos/node": "^2.0.5",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "firebase": "^12.12.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.9.0",
